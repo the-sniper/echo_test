@@ -10,9 +10,9 @@ export function AdminSidebar() {
       <div className="flex flex-col h-full">
         <div className="h-16 flex items-center gap-3 px-6 border-b border-border/50">
           <Link href="/" className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
+            {/* <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
               <Mic className="w-4 h-4 text-white" strokeWidth={2} />
-            </div>
+            </div> */}
             <span className="font-semibold tracking-tight">Echo Test</span>
           </Link>
         </div>
@@ -46,9 +46,9 @@ export function AdminMobileHeader() {
     <header className="md:hidden fixed top-0 left-0 right-0 h-16 border-b border-border/50 bg-card/50 glass z-50">
       <div className="flex items-center justify-between h-full px-4">
         <Link href="/" className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
+          {/* <div className="w-9 h-9 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
             <Mic className="w-4 h-4 text-white" strokeWidth={2} />
-          </div>
+          </div> */}
           <span className="font-semibold tracking-tight">Echo Test</span>
         </Link>
         <ThemeToggle />

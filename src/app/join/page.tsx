@@ -37,9 +37,9 @@ export default function JoinPage() {
       <div className="w-full max-w-md space-y-8">
         <div className="text-center">
           <Link href="/" className="inline-flex items-center gap-3">
-            <div className="w-11 h-11 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
+            {/* <div className="w-11 h-11 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
               <Mic className="w-5 h-5 text-white" strokeWidth={2} />
-            </div>
+            </div> */}
             <span className="font-semibold text-xl tracking-tight">Echo Test</span>
           </Link>
         </div>
