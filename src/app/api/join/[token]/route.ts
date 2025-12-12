@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { data: tester, error: testerError } = await supabase.from("testers").select("*").eq("invite_token", token).single();
   if (testerError || !tester) return NextResponse.json({ error: "Invalid invite link" }, { status: 404 });
   const { data: session, error: sessionError } = await supabase.from("sessions").select("*, scenes (*)").eq("id", tester.session_id).order("order_index", { referencedTable: "scenes", ascending: true }).single();

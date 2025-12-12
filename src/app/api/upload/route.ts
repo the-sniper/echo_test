@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 
 export async function POST(req: NextRequest) {
   const formData = await req.formData();
@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   const sessionId = formData.get("sessionId") as string;
   const noteId = formData.get("noteId") as string;
   if (!audioFile || !sessionId || !noteId) return NextResponse.json({ error: "Missing params" }, { status: 400 });
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const fileName = `${sessionId}/${noteId}.webm`;
   const arrayBuffer = await audioFile.arrayBuffer();
   await supabase.storage.from("audio-recordings").upload(fileName, Buffer.from(arrayBuffer), { contentType: "audio/webm", upsert: true });

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, use } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Copy, Check, Play, Square, Users, FileText, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -12,8 +12,8 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { formatDate, getStatusLabel, getCategoryLabel } from "@/lib/utils";
 import type { SessionWithDetails, Tester, NoteWithDetails } from "@/types";
 
-export default function SessionDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function SessionDetailPage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const [session, setSession] = useState<SessionWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [addTesterDialog, setAddTesterDialog] = useState(false);

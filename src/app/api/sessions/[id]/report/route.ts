@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { SessionReportPDF } from "@/components/pdf/session-report";
 import type { SessionWithDetails, NoteCategory } from "@/types";
@@ -7,7 +7,7 @@ import type { SessionWithDetails, NoteCategory } from "@/types";
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: session, error } = await supabase.from("sessions").select(`*, scenes (*), testers (*), notes (*, scene:scenes (*), tester:testers (*))`).eq("id", id).single();
     if (error || !session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
-    const supabase = await createClient();
+    const supabase = createAdminClient();
     const { data: session, error } = await supabase.from("sessions").select(`*, scenes (*), testers (*), notes (*, scene:scenes (*), tester:testers (*))`).eq("id", id).order("order_index", { referencedTable: "scenes", ascending: true }).order("created_at", { referencedTable: "notes", ascending: true }).single();
     if (error || !session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
 
