@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+// GET all teams with members count
+export async function GET() {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("teams")
+      .select("*, members:team_members(count)")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error fetching teams:", error);
+    return NextResponse.json({ error: "Failed to fetch teams" }, { status: 500 });
+  }
+}
+
+// POST create new team
+export async function POST(request: Request) {
+  try {
+    const { name } = await request.json();
+    
+    if (!name?.trim()) {
+      return NextResponse.json({ error: "Team name is required" }, { status: 400 });
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("teams")
+      .insert({ name: name.trim() })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error creating team:", error);
+    return NextResponse.json({ error: "Failed to create team" }, { status: 500 });
+  }
+}

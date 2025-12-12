@@ -105,7 +105,7 @@ export default function ReportPage({ params }: { params: { id: string } }) {
               <div key={note.id} className="p-4 rounded-lg border border-border">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2"><Badge variant={note.category as "bug" | "feature" | "ux" | "performance" | "secondary"}>{getCategoryLabel(note.category)}</Badge>{note.auto_classified && <span className="text-xs text-muted-foreground">(auto)</span>}</div>
-                  <span className="text-xs text-muted-foreground">{note.tester?.name} • {formatDate(note.created_at)}</span>
+                  <span className="text-xs text-muted-foreground">{note.tester?.first_name} {note.tester?.last_name} • {formatDate(note.created_at)}</span>
                 </div>
                 <p className="text-sm">{note.edited_transcript || note.raw_transcript || "No transcript"}</p>
               </div>

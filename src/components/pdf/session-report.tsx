@@ -85,7 +85,7 @@ export function SessionReportPDF({ session }: { session: SessionWithDetails }) {
               <View key={note.id} style={[styles.note, index === notes.length - 1 ? { borderBottomWidth: 0 } : {}]}>
                 <View style={styles.noteHeader}>
                   <Text style={[styles.noteBadge, { backgroundColor: categoryColors[note.category] }]}>{categoryLabels[note.category]}{note.auto_classified ? " (auto)" : ""}</Text>
-                  <Text style={styles.noteMeta}>{note.tester?.name} • {formatDate(note.created_at)}</Text>
+                  <Text style={styles.noteMeta}>{note.tester?.first_name} {note.tester?.last_name} • {formatDate(note.created_at)}</Text>
                 </View>
                 <Text style={styles.noteText}>{note.edited_transcript || note.raw_transcript || "No transcript"}</Text>
               </View>

@@ -2,19 +2,52 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { generateInviteToken } from "@/lib/utils";
 
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const supabase = createAdminClient();
   const { data } = await supabase.from("testers").select("*").eq("session_id", id).order("created_at", { ascending: true });
   return NextResponse.json(data);
 }
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
-  const { id } = params;
-  const { name } = await req.json();
-  if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json();
   const supabase = createAdminClient();
-  const { data } = await supabase.from("testers").insert({ session_id: id, name, invite_token: generateInviteToken() }).select().single();
+
+  // Handle bulk add from team members
+  if (body.members && Array.isArray(body.members)) {
+    const testersToInsert = body.members.map((member: { first_name: string; last_name: string; email?: string }) => ({
+      session_id: id,
+      first_name: member.first_name,
+      last_name: member.last_name,
+      email: member.email || null,
+      invite_token: generateInviteToken(),
+    }));
+
+    const { data, error } = await supabase.from("testers").insert(testersToInsert).select();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data, { status: 201 });
+  }
+
+  // Handle single individual tester
+  const { first_name, last_name, email } = body;
+  if (!first_name || !last_name) {
+    return NextResponse.json({ error: "First name and last name are required" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("testers")
+    .insert({
+      session_id: id,
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      email: email?.trim() || null,
+      invite_token: generateInviteToken(),
+    })
+    .select()
+    .single();
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data, { status: 201 });
 }
 

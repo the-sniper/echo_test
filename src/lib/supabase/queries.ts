@@ -60,10 +60,16 @@ export async function getTesterByToken(token: string): Promise<Tester | null> {
   return data;
 }
 
-export async function createTester(sessionId: string, name: string): Promise<Tester> {
+export async function createTester(sessionId: string, firstName: string, lastName: string, email?: string): Promise<Tester> {
   const supabase = await createClient();
   const inviteToken = generateInviteToken();
-  const { data, error } = await supabase.from("testers").insert({ session_id: sessionId, name, invite_token: inviteToken }).select().single();
+  const { data, error } = await supabase.from("testers").insert({
+    session_id: sessionId,
+    first_name: firstName,
+    last_name: lastName,
+    email: email || null,
+    invite_token: inviteToken,
+  }).select().single();
   if (error) throw error;
   return data;
 }

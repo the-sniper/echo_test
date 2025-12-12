@@ -15,6 +15,11 @@ import {
   Layout,
   Edit2,
   RotateCcw,
+  UserPlus,
+  UsersRound,
+  ChevronDown,
+  CheckSquare,
+  Square as SquareIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,7 +48,14 @@ import type {
   Tester,
   NoteWithDetails,
   Scene,
+  Team,
+  TeamMember,
+  TeamWithMembers,
 } from "@/types";
+
+interface TeamWithCount extends Team {
+  members: { count: number }[];
+}
 
 export default function SessionDetailPage({
   params,
@@ -54,9 +66,23 @@ export default function SessionDetailPage({
   const [session, setSession] = useState<SessionWithDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [addTesterDialog, setAddTesterDialog] = useState(false);
-  const [newTesterName, setNewTesterName] = useState("");
+  const [testerTab, setTesterTab] = useState<"team" | "adhoc">("team");
   const [addingTester, setAddingTester] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
+  
+  // Individual tester form
+  const [newTesterFirstName, setNewTesterFirstName] = useState("");
+  const [newTesterLastName, setNewTesterLastName] = useState("");
+  const [newTesterEmail, setNewTesterEmail] = useState("");
+  const [individualTesterError, setIndividualTesterError] = useState<string | null>(null);
+  
+  // Team selection
+  const [teams, setTeams] = useState<TeamWithCount[]>([]);
+  const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
+  const [selectedTeam, setSelectedTeam] = useState<TeamWithMembers | null>(null);
+  const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [loadingTeam, setLoadingTeam] = useState(false);
+  
   const [addSceneDialog, setAddSceneDialog] = useState(false);
   const [newSceneName, setNewSceneName] = useState("");
   const [newSceneDescription, setNewSceneDescription] = useState("");
@@ -70,7 +96,9 @@ export default function SessionDetailPage({
   const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
-    fetchSession(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
+    fetchSession();
+    fetchTeams();
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [id]);
 
   async function fetchSession() {
@@ -79,6 +107,99 @@ export default function SessionDetailPage({
       if (res.ok) setSession(await res.json());
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function fetchTeams() {
+    try {
+      const res = await fetch("/api/teams");
+      if (res.ok) setTeams(await res.json());
+    } catch (error) {
+      console.error("Failed to fetch teams:", error);
+    }
+  }
+
+  // Check if a team member is already added as a tester
+  function isMemberAlreadyTester(member: TeamMember, testers?: Tester[]): boolean {
+    const testerList = testers || session?.testers;
+    if (!testerList) return false;
+    return testerList.some(
+      (t) =>
+        t.first_name.toLowerCase() === member.first_name.toLowerCase() &&
+        t.last_name.toLowerCase() === member.last_name.toLowerCase()
+    );
+  }
+
+  // Check if an individual tester with given name already exists
+  function isIndividualTesterDuplicate(firstName: string, lastName: string): boolean {
+    if (!session?.testers) return false;
+    return session.testers.some(
+      (t) =>
+        t.first_name.toLowerCase() === firstName.toLowerCase().trim() &&
+        t.last_name.toLowerCase() === lastName.toLowerCase().trim()
+    );
+  }
+
+  // Get available members (not already testers)
+  function getAvailableMembers(): TeamMember[] {
+    if (!selectedTeam) return [];
+    return selectedTeam.members.filter((m) => !isMemberAlreadyTester(m));
+  }
+
+  async function fetchTeamDetails(teamId: string) {
+    setLoadingTeam(true);
+    try {
+      const res = await fetch(`/api/teams/${teamId}`);
+      if (res.ok) {
+        const team = await res.json();
+        setSelectedTeam(team);
+        // Only select members who are NOT already testers
+        // Use session.testers directly from the current session state
+        const currentTesters = session?.testers || [];
+        const availableIds = team.members
+          .filter((m: TeamMember) => !isMemberAlreadyTester(m, currentTesters))
+          .map((m: TeamMember) => m.id);
+        setSelectedMembers(new Set(availableIds));
+      }
+    } finally {
+      setLoadingTeam(false);
+    }
+  }
+
+  function handleTeamSelect(teamId: string) {
+    setSelectedTeamId(teamId);
+    fetchTeamDetails(teamId);
+  }
+
+  function toggleMember(memberId: string) {
+    // Don't allow toggling members who are already testers
+    const member = selectedTeam?.members.find((m) => m.id === memberId);
+    if (member && isMemberAlreadyTester(member)) return;
+
+    setSelectedMembers((prev) => {
+      const next = new Set(prev);
+      if (next.has(memberId)) {
+        next.delete(memberId);
+      } else {
+        next.add(memberId);
+      }
+      return next;
+    });
+  }
+
+  function toggleAllMembers() {
+    if (!selectedTeam) return;
+    const availableMembers = getAvailableMembers();
+    const selectedAvailableCount = availableMembers.filter((m) =>
+      selectedMembers.has(m.id)
+    ).length;
+
+    if (selectedAvailableCount === availableMembers.length) {
+      // Deselect all available members
+      setSelectedMembers(new Set());
+    } else {
+      // Select all available members
+      setSelectedMembers(new Set(availableMembers.map((m) => m.id)));
     }
   }
   async function handleStartSession() {
@@ -111,21 +232,68 @@ export default function SessionDetailPage({
       setRestarting(false);
     }
   }
-  async function handleAddTester() {
-    if (!newTesterName.trim()) return;
+  async function handleAddTesterFromTeam() {
+    if (!selectedTeam || selectedMembers.size === 0) return;
     setAddingTester(true);
     try {
+      const membersToAdd = selectedTeam.members
+        .filter((m) => selectedMembers.has(m.id))
+        .map((m) => ({
+          first_name: m.first_name,
+          last_name: m.last_name,
+          email: m.email,
+        }));
+
       await fetch(`/api/sessions/${id}/testers`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTesterName.trim() }),
+        body: JSON.stringify({ members: membersToAdd }),
       });
-      setNewTesterName("");
-      setAddTesterDialog(false);
+      resetTesterDialog();
       fetchSession();
     } finally {
       setAddingTester(false);
     }
+  }
+
+  async function handleAddIndividualTester() {
+    if (!newTesterFirstName.trim() || !newTesterLastName.trim()) return;
+    
+    // Check for duplicate
+    if (isIndividualTesterDuplicate(newTesterFirstName, newTesterLastName)) {
+      setIndividualTesterError(`${newTesterFirstName.trim()} ${newTesterLastName.trim()} is already added as a tester`);
+      return;
+    }
+    
+    setAddingTester(true);
+    setIndividualTesterError(null);
+    try {
+      await fetch(`/api/sessions/${id}/testers`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name: newTesterFirstName.trim(),
+          last_name: newTesterLastName.trim(),
+          email: newTesterEmail.trim() || null,
+        }),
+      });
+      resetTesterDialog();
+      fetchSession();
+    } finally {
+      setAddingTester(false);
+    }
+  }
+
+  function resetTesterDialog() {
+    setAddTesterDialog(false);
+    setTesterTab("team");
+    setNewTesterFirstName("");
+    setNewTesterLastName("");
+    setNewTesterEmail("");
+    setIndividualTesterError(null);
+    setSelectedTeamId(null);
+    setSelectedTeam(null);
+    setSelectedMembers(new Set());
   }
   async function handleDeleteTester(testerId: string) {
     await fetch(`/api/sessions/${id}/testers?testerId=${testerId}`, {
@@ -412,7 +580,10 @@ export default function SessionDetailPage({
                       className="flex items-center justify-between p-4 rounded-lg bg-secondary/30 group"
                     >
                       <div>
-                        <p className="font-medium">{t.name}</p>
+                        <p className="font-medium">{t.first_name} {t.last_name}</p>
+                        {t.email && (
+                          <p className="text-xs text-muted-foreground">{t.email}</p>
+                        )}
                         {session.status !== "completed" && (
                           <p className="text-sm text-muted-foreground font-mono">
                             /join/{t.invite_token}
@@ -497,7 +668,7 @@ export default function SessionDetailPage({
                           </span>
                         </div>
                         <span className="text-xs text-muted-foreground">
-                          {n.tester?.name} • {formatDate(n.created_at)}
+                          {n.tester?.first_name} {n.tester?.last_name} • {formatDate(n.created_at)}
                         </span>
                       </div>
                       <p className="text-sm">
@@ -520,42 +691,236 @@ export default function SessionDetailPage({
           </Card>
         </TabsContent>
       </Tabs>
-      <Dialog open={addTesterDialog} onOpenChange={setAddTesterDialog}>
-        <DialogContent>
+      <Dialog open={addTesterDialog} onOpenChange={(open) => { if (!open) resetTesterDialog(); else setAddTesterDialog(true); }}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Tester</DialogTitle>
+            <DialogTitle>Add Testers</DialogTitle>
             <DialogDescription>
-              Create a new tester with invite link
+              Add testers from a team or create individual testers
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="testerName">Tester Name</Label>
-              <Input
-                id="testerName"
-                value={newTesterName}
-                onChange={(e) => setNewTesterName(e.target.value)}
-                placeholder="e.g., John Doe"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAddTester();
-                  }
-                }}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setAddTesterDialog(false)}>
-              Cancel
+          
+          {/* Tab Buttons */}
+          <div className="flex gap-2 border-b border-border pb-4">
+            <Button
+              variant={testerTab === "team" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTesterTab("team")}
+              className="gap-2"
+            >
+              <UsersRound className="w-4 h-4" />
+              From Team
             </Button>
             <Button
-              onClick={handleAddTester}
-              disabled={addingTester || !newTesterName.trim()}
+              variant={testerTab === "adhoc" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setTesterTab("adhoc")}
+              className="gap-2"
             >
-              {addingTester && <Loader2 className="w-4 h-4 animate-spin" />}Add
-              Tester
+              <UserPlus className="w-4 h-4" />
+              Individual Tester
             </Button>
+          </div>
+
+          {/* Team Selection Tab */}
+          {testerTab === "team" && (
+            <div className="space-y-4 py-2">
+              {teams.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <UsersRound className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                  <p className="text-sm mb-2">No teams created yet</p>
+                  <Link href="/admin/teams">
+                    <Button size="sm" variant="outline">
+                      <Plus className="w-4 h-4" />
+                      Create Team
+                    </Button>
+                  </Link>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label>Select Team</Label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {teams.map((team) => (
+                        <button
+                          key={team.id}
+                          type="button"
+                          className={`p-3 rounded-lg border text-left transition-colors ${
+                            selectedTeamId === team.id
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                          onClick={() => handleTeamSelect(team.id)}
+                        >
+                          <p className="font-medium text-sm">{team.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {team.members?.[0]?.count || 0} members
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {selectedTeamId && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label>Select Members</Label>
+                        {selectedTeam && getAvailableMembers().length > 0 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={toggleAllMembers}
+                            className="h-auto py-1 px-2 text-xs"
+                          >
+                            {selectedMembers.size === getAvailableMembers().length
+                              ? "Deselect All"
+                              : "Select All"}
+                          </Button>
+                        )}
+                      </div>
+                      
+                      {loadingTeam ? (
+                        <div className="flex items-center justify-center py-6">
+                          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                        </div>
+                      ) : selectedTeam?.members.length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <p className="text-sm">No members in this team</p>
+                        </div>
+                      ) : getAvailableMembers().length === 0 ? (
+                        <div className="text-center py-6 text-muted-foreground">
+                          <Check className="w-8 h-8 mx-auto mb-2 text-primary" />
+                          <p className="text-sm">All team members already added</p>
+                        </div>
+                      ) : (
+                        <div className="max-h-48 overflow-y-auto space-y-1 rounded-lg border border-border p-2">
+                          {selectedTeam?.members.map((member) => {
+                            const isAlreadyAdded = isMemberAlreadyTester(member);
+                            return (
+                              <button
+                                key={member.id}
+                                type="button"
+                                disabled={isAlreadyAdded}
+                                className={`w-full flex items-center gap-3 p-2 rounded-md text-left transition-colors ${
+                                  isAlreadyAdded
+                                    ? "opacity-50 cursor-not-allowed bg-secondary/30"
+                                    : selectedMembers.has(member.id)
+                                    ? "bg-primary/10"
+                                    : "hover:bg-secondary"
+                                }`}
+                                onClick={() => toggleMember(member.id)}
+                              >
+                                {isAlreadyAdded ? (
+                                  <Check className="w-4 h-4 text-primary shrink-0" />
+                                ) : selectedMembers.has(member.id) ? (
+                                  <CheckSquare className="w-4 h-4 text-primary shrink-0" />
+                                ) : (
+                                  <SquareIcon className="w-4 h-4 text-muted-foreground shrink-0" />
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="font-medium text-sm truncate">
+                                      {member.first_name} {member.last_name}
+                                    </p>
+                                    {isAlreadyAdded && (
+                                      <span className="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded shrink-0">
+                                        Added
+                                      </span>
+                                    )}
+                                  </div>
+                                  {member.email && (
+                                    <p className="text-xs text-muted-foreground truncate">
+                                      {member.email}
+                                    </p>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Individual Tester Tab */}
+          {testerTab === "adhoc" && (
+            <div className="space-y-4 py-2">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="testerFirstName">First Name *</Label>
+                  <Input
+                    id="testerFirstName"
+                    value={newTesterFirstName}
+                    onChange={(e) => {
+                      setNewTesterFirstName(e.target.value);
+                      setIndividualTesterError(null);
+                    }}
+                    placeholder="John"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="testerLastName">Last Name *</Label>
+                  <Input
+                    id="testerLastName"
+                    value={newTesterLastName}
+                    onChange={(e) => {
+                      setNewTesterLastName(e.target.value);
+                      setIndividualTesterError(null);
+                    }}
+                    placeholder="Doe"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="testerEmail">
+                  Email <span className="text-muted-foreground font-normal">(optional)</span>
+                </Label>
+                <Input
+                  id="testerEmail"
+                  type="email"
+                  value={newTesterEmail}
+                  onChange={(e) => setNewTesterEmail(e.target.value)}
+                  placeholder="john.doe@example.com"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddIndividualTester();
+                    }
+                  }}
+                />
+              </div>
+              {individualTesterError && (
+                <p className="text-sm text-destructive">{individualTesterError}</p>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={resetTesterDialog}>
+              Cancel
+            </Button>
+            {testerTab === "team" ? (
+              <Button
+                onClick={handleAddTesterFromTeam}
+                disabled={addingTester || selectedMembers.size === 0}
+              >
+                {addingTester && <Loader2 className="w-4 h-4 animate-spin" />}
+                Add {selectedMembers.size > 0 ? `${selectedMembers.size} Tester${selectedMembers.size > 1 ? "s" : ""}` : "Testers"}
+              </Button>
+            ) : (
+              <Button
+                onClick={handleAddIndividualTester}
+                disabled={addingTester || !newTesterFirstName.trim() || !newTesterLastName.trim()}
+              >
+                {addingTester && <Loader2 className="w-4 h-4 animate-spin" />}
+                Add Tester
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
