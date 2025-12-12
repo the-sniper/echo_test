@@ -10,10 +10,10 @@ export default function Home() {
 
       <main className="container mx-auto px-4 py-24">
         <div className="max-w-4xl mx-auto text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
+          {/* <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-primary text-sm font-medium">
             <Sparkles className="w-3.5 h-3.5" />
             Voice-First Feedback Platform
-          </div>
+          </div> */}
           
           <div className="space-y-5">
             <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-[1.1]">
@@ -23,9 +23,9 @@ export default function Home() {
                 Insights Naturally
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+            {/* <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Record unbiased tester feedback with voice notes, automatic transcription, and actionable reports.
-            </p>
+            </p> */}
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
@@ -43,7 +43,7 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mt-28">
+        {/* <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 mt-28">
           {[
             { icon: Mic, title: "Voice Recording", desc: "Record notes hands-free with intuitive controls." },
             { icon: BarChart3, title: "Auto Transcription", desc: "Whisper-powered speech to text." },
@@ -61,14 +61,14 @@ export default function Home() {
               <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
             </div>
           ))}
-        </div>
+        </div> */}
       </main>
 
-      <footer className="border-t border-border/40 mt-32 py-8">
+      {/* <footer className="border-t border-border/40 mt-32 py-8">
         <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
           Echo Test — Voice-Based Testing Notes Platform
         </div>
-      </footer>
+      </footer> */}
     </div>
   );
 }
