@@ -23,6 +23,8 @@ import {
   Clock,
   Mail,
   AlertTriangle,
+  Filter,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,6 +40,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -155,6 +158,11 @@ export default function SessionDetailPage({
 
   // Edit tester state
   const [editTesterDialog, setEditTesterDialog] = useState(false);
+
+  // Notes filter state
+  const [noteCategoryFilter, setNoteCategoryFilter] = useState<string>("all");
+  const [noteSceneFilter, setNoteSceneFilter] = useState<string>("all");
+  const [noteTesterFilter, setNoteTesterFilter] = useState<string>("all");
   const [editingTester, setEditingTester] = useState<Tester | null>(null);
   const [editTesterFirstName, setEditTesterFirstName] = useState("");
   const [editTesterLastName, setEditTesterLastName] = useState("");
@@ -193,6 +201,25 @@ export default function SessionDetailPage({
       return `${seconds}s`;
     }
   }, [elapsedTime]);
+
+  // Filter notes based on selected filters
+  const filteredNotes = useMemo(() => {
+    if (!session?.notes) return [];
+    return session.notes.filter((note) => {
+      if (noteCategoryFilter !== "all" && note.category !== noteCategoryFilter) return false;
+      if (noteSceneFilter !== "all" && note.scene_id !== noteSceneFilter) return false;
+      if (noteTesterFilter !== "all" && note.tester_id !== noteTesterFilter) return false;
+      return true;
+    });
+  }, [session?.notes, noteCategoryFilter, noteSceneFilter, noteTesterFilter]);
+
+  const hasActiveNoteFilters = noteCategoryFilter !== "all" || noteSceneFilter !== "all" || noteTesterFilter !== "all";
+
+  function clearNoteFilters() {
+    setNoteCategoryFilter("all");
+    setNoteSceneFilter("all");
+    setNoteTesterFilter("all");
+  }
 
   useEffect(() => {
     fetchSession();
@@ -906,13 +933,80 @@ export default function SessionDetailPage({
         </TabsContent>
         <TabsContent value="notes" className="mt-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Notes</CardTitle>
-              <CardDescription>
-                {session.status === "completed"
-                  ? "All notes"
-                  : "Notes visible after session ends"}
-              </CardDescription>
+            <CardHeader className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Notes</CardTitle>
+                  <CardDescription>
+                    {session.status === "completed"
+                      ? hasActiveNoteFilters 
+                        ? `${filteredNotes.length} of ${session.notes?.length || 0} notes`
+                        : `${session.notes?.length || 0} notes`
+                      : "Notes visible after session ends"}
+                  </CardDescription>
+                </div>
+              </div>
+              
+              {/* Filters - only show when completed and has notes */}
+              {session.status === "completed" && session.notes && session.notes.length > 0 && (
+                <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-border">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Filter by:</span>
+                  </div>
+                  
+                  <Select value={noteCategoryFilter} onValueChange={setNoteCategoryFilter}>
+                    <SelectTrigger className="h-8 w-[140px] text-xs">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="bug">Bug</SelectItem>
+                      <SelectItem value="feature">Feature</SelectItem>
+                      <SelectItem value="ux">UX Feedback</SelectItem>
+                      <SelectItem value="performance">Performance</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  
+                  {session.scenes && session.scenes.length > 0 && (
+                    <Select value={noteSceneFilter} onValueChange={setNoteSceneFilter}>
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue placeholder="Scene" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Scenes</SelectItem>
+                        {session.scenes.map((scene) => (
+                          <SelectItem key={scene.id} value={scene.id}>{scene.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
+                  {session.testers && session.testers.length > 0 && (
+                    <Select value={noteTesterFilter} onValueChange={setNoteTesterFilter}>
+                      <SelectTrigger className="h-8 w-[150px] text-xs">
+                        <SelectValue placeholder="Tester" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Testers</SelectItem>
+                        {session.testers.map((tester) => (
+                          <SelectItem key={tester.id} value={tester.id}>
+                            {tester.first_name} {tester.last_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                  
+                  {hasActiveNoteFilters && (
+                    <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearNoteFilters}>
+                      <X className="w-3 h-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent>
               {session.status !== "completed" ? (
@@ -925,9 +1019,14 @@ export default function SessionDetailPage({
                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No notes recorded</p>
                 </div>
+              ) : filteredNotes.length === 0 && hasActiveNoteFilters ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>No notes match the current filters</p>
+                  <Button variant="link" size="sm" onClick={clearNoteFilters}>Clear filters</Button>
+                </div>
               ) : (
                 <div className="space-y-4">
-                  {session.notes?.map((n: NoteWithDetails) => (
+                  {filteredNotes.map((n: NoteWithDetails) => (
                     <div
                       key={n.id}
                       className="p-4 rounded-lg border border-border"

@@ -1,15 +1,15 @@
 "use client";
-import { useState } from "react";
-import { FileText, Edit2, Check, X, Play, Pause } from "lucide-react";
+import { useState, useMemo } from "react";
+import { FileText, Edit2, Check, X, Play, Pause, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDate, getCategoryLabel } from "@/lib/utils";
-import type { Note, NoteWithDetails, NoteCategory, Scene } from "@/types";
+import type { Note, NoteWithDetails, NoteCategory, Scene, Tester } from "@/types";
 
-interface Props { notes: (Note | NoteWithDetails)[]; sessionId: string; scenes?: Scene[]; onNoteUpdated: (note: Note) => void; }
+interface Props { notes: (Note | NoteWithDetails)[]; sessionId: string; scenes?: Scene[]; testers?: Tester[]; onNoteUpdated: (note: Note) => void; }
 
 const CATEGORIES: { value: NoteCategory; label: string }[] = [
   { value: "bug", label: "Bug" },
@@ -19,12 +19,35 @@ const CATEGORIES: { value: NoteCategory; label: string }[] = [
   { value: "other", label: "Other" },
 ];
 
-export function NotesList({ notes, sessionId, scenes, onNoteUpdated }: Props) {
+export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
+  
+  // Filter state
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sceneFilter, setSceneFilter] = useState<string>("all");
+  const [testerFilter, setTesterFilter] = useState<string>("all");
+  
+  // Filter notes based on selected filters
+  const filteredNotes = useMemo(() => {
+    return notes.filter((note) => {
+      if (categoryFilter !== "all" && note.category !== categoryFilter) return false;
+      if (sceneFilter !== "all" && note.scene_id !== sceneFilter) return false;
+      if (testerFilter !== "all" && note.tester_id !== testerFilter) return false;
+      return true;
+    });
+  }, [notes, categoryFilter, sceneFilter, testerFilter]);
+  
+  const hasActiveFilters = categoryFilter !== "all" || sceneFilter !== "all" || testerFilter !== "all";
+  
+  function clearFilters() {
+    setCategoryFilter("all");
+    setSceneFilter("all");
+    setTesterFilter("all");
+  }
 
   function startEditing(note: Note | NoteWithDetails) { setEditingId(note.id); setEditText(note.edited_transcript || note.raw_transcript || ""); }
   function cancelEditing() { setEditingId(null); setEditText(""); }
@@ -49,14 +72,90 @@ export function NotesList({ notes, sessionId, scenes, onNoteUpdated }: Props) {
     if (scenes) { const scene = scenes.find(s => s.id === note.scene_id); if (scene) return scene.name; }
     return "Unknown";
   }
+  
+  function getTesterName(note: Note | NoteWithDetails): string {
+    if ("tester" in note && note.tester) return `${note.tester.first_name} ${note.tester.last_name}`;
+    if (testers) { const tester = testers.find(t => t.id === note.tester_id); if (tester) return `${tester.first_name} ${tester.last_name}`; }
+    return "Unknown";
+  }
 
   if (notes.length === 0) return <Card><CardContent className="py-12 text-center"><FileText className="w-12 h-12 mx-auto mb-4 text-muted-foreground opacity-50" /><p className="text-muted-foreground">No notes yet</p></CardContent></Card>;
 
   return (
     <Card>
-      <CardHeader><CardTitle className="text-lg flex items-center justify-between"><span>Your Notes</span><span className="text-sm font-normal text-muted-foreground">{notes.length} notes</span></CardTitle></CardHeader>
+      <CardHeader className="space-y-4">
+        <CardTitle className="text-lg flex items-center justify-between">
+          <span>Notes</span>
+          <span className="text-sm font-normal text-muted-foreground">
+            {hasActiveFilters ? `${filteredNotes.length} of ${notes.length}` : `${notes.length}`} notes
+          </span>
+        </CardTitle>
+        
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Filter by:</span>
+          </div>
+          
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="h-8 w-[140px] text-xs">
+              <SelectValue placeholder="Category" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {CATEGORIES.map((cat) => (
+                <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          
+          {scenes && scenes.length > 0 && (
+            <Select value={sceneFilter} onValueChange={setSceneFilter}>
+              <SelectTrigger className="h-8 w-[130px] text-xs">
+                <SelectValue placeholder="Scene" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Scenes</SelectItem>
+                {scenes.map((scene) => (
+                  <SelectItem key={scene.id} value={scene.id}>{scene.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
+          {testers && testers.length > 0 && (
+            <Select value={testerFilter} onValueChange={setTesterFilter}>
+              <SelectTrigger className="h-8 w-[150px] text-xs">
+                <SelectValue placeholder="Tester" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Testers</SelectItem>
+                {testers.map((tester) => (
+                  <SelectItem key={tester.id} value={tester.id}>
+                    {tester.first_name} {tester.last_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
+          {hasActiveFilters && (
+            <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={clearFilters}>
+              <X className="w-3 h-3 mr-1" />
+              Clear
+            </Button>
+          )}
+        </div>
+      </CardHeader>
+      
       <CardContent className="space-y-4">
-        {notes.map((note) => (
+        {filteredNotes.length === 0 && hasActiveFilters ? (
+          <div className="py-8 text-center">
+            <p className="text-muted-foreground">No notes match the current filters</p>
+            <Button variant="link" size="sm" onClick={clearFilters}>Clear filters</Button>
+          </div>
+        ) : filteredNotes.map((note) => (
           <div key={note.id} className="p-4 rounded-lg border border-border bg-card/50 space-y-3 animate-fade-in">
             <div className="flex items-start justify-between gap-2"><div className="flex items-center gap-2 flex-wrap">{editingCategoryId === note.id ? (
                   <Select value={note.category} onValueChange={(value) => updateCategory(note.id, value as NoteCategory)} onOpenChange={(open) => { if (!open) setEditingCategoryId(null); }}>
@@ -76,7 +175,7 @@ export function NotesList({ notes, sessionId, scenes, onNoteUpdated }: Props) {
                   )
                 ) : (
                   "scene" in note && note.scene && <span className="text-xs text-muted-foreground">{note.scene.name}</span>
-                )}</div><span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(note.created_at)}</span></div>
+                )}<span className="text-xs text-muted-foreground">•</span><span className="text-xs text-muted-foreground">{getTesterName(note)}</span></div><span className="text-xs text-muted-foreground whitespace-nowrap">{formatDate(note.created_at)}</span></div>
             {editingId === note.id ? <div className="space-y-2"><Textarea value={editText} onChange={(e) => setEditText(e.target.value)} className="min-h-[100px]" /><div className="flex justify-end gap-2"><Button variant="ghost" size="sm" onClick={cancelEditing}><X className="w-4 h-4" />Cancel</Button><Button size="sm" onClick={() => saveEdit(note.id)}><Check className="w-4 h-4" />Save</Button></div></div> : <div className="group relative"><p className="text-sm pr-8">{note.edited_transcript || note.raw_transcript || <span className="text-muted-foreground italic">No transcript</span>}</p>{(note.edited_transcript || note.raw_transcript) && <Button variant="ghost" size="icon" className="absolute top-0 right-0 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => startEditing(note)}><Edit2 className="w-3 h-3" /></Button>}</div>}
             {note.edited_transcript && note.raw_transcript && note.edited_transcript !== note.raw_transcript && <details className="text-xs"><summary className="text-muted-foreground cursor-pointer hover:text-foreground">Show original</summary><p className="mt-2 p-2 bg-secondary/30 rounded text-muted-foreground">{note.raw_transcript}</p></details>}
             {note.audio_url && <div className="flex items-center gap-2"><Button variant="ghost" size="sm" className="h-8" onClick={() => toggleAudio(note.id)}>{playingId === note.id ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}{playingId === note.id ? "Pause" : "Play"}</Button><audio id={`audio-${note.id}`} src={note.audio_url} className="hidden" /></div>}
