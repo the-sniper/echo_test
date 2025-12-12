@@ -334,7 +334,7 @@ export default function TeamsPage() {
                           setMemberForm({
                             first_name: member.first_name,
                             last_name: member.last_name,
-                            email: member.email,
+                            email: member.email ?? "",
                           });
                           setEditMemberDialog({ open: true, member });
                         }}
