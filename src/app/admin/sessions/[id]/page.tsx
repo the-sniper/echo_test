@@ -25,6 +25,7 @@ import {
   AlertTriangle,
   Filter,
   X,
+  MoreVertical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatDate, getStatusLabel, getCategoryLabel } from "@/lib/utils";
 import type {
   SessionWithDetails,
@@ -761,34 +768,64 @@ export default function SessionDetailPage({
                           <p className="font-medium">{s.name}</p>
                         </div>
                         {session.status !== "completed" && (
-                          <div className="flex items-center gap-1 shrink-0 sm:opacity-0 sm:group-hover:opacity-100">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-foreground"
-                              onClick={() => openEditSceneDialog(s)}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                            {session.scenes && session.scenes.length > 1 && (
+                          <>
+                            {/* Desktop: Icons on hover */}
+                            <div className="hidden sm:flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="text-muted-foreground hover:text-destructive"
-                                onClick={() => handleDeleteScene(s.id)}
+                                className="text-muted-foreground hover:text-foreground"
+                                onClick={() => openEditSceneDialog(s)}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                <Edit2 className="w-4 h-4" />
                               </Button>
-                            )}
-                          </div>
+                              {session.scenes && session.scenes.length > 1 && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={() => handleDeleteScene(s.id)}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </div>
+                            {/* Mobile: 3-dot menu */}
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="sm:hidden h-8 w-8 text-muted-foreground hover:text-foreground shrink-0"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => openEditSceneDialog(s)}>
+                                  <Edit2 className="w-4 h-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                {session.scenes && session.scenes.length > 1 && (
+                                  <DropdownMenuItem
+                                    onClick={() => handleDeleteScene(s.id)}
+                                    className="text-destructive focus:text-destructive"
+                                  >
+                                    <Trash2 className="w-4 h-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                )}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
                         )}
                       </div>
                       {s.description ? (
-                        <div className="mt-2">
+                        <div className="mt-2 ml-7">
                           <FormattedDescription text={s.description} />
                         </div>
                       ) : session.status !== "completed" && (
-                        <p className="text-sm text-muted-foreground/50 mt-2 italic">No testing instructions</p>
+                        <p className="text-sm text-muted-foreground/50 mt-2 ml-7 italic">No testing instructions</p>
                       )}
                     </div>
                   ))}
