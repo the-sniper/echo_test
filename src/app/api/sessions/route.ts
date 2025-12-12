@@ -10,10 +10,10 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, build_version, scenes } = body;
+  const { name, description, build_version, scenes } = body;
   if (!name) return NextResponse.json({ error: "Name required" }, { status: 400 });
   const supabase = createAdminClient();
-  const { data: session, error } = await supabase.from("sessions").insert({ name, build_version: build_version || null, status: "draft" }).select().single();
+  const { data: session, error } = await supabase.from("sessions").insert({ name, description: description || null, build_version: build_version || null, status: "draft" }).select().single();
   if (error) return NextResponse.json({ error: "Failed" }, { status: 500 });
   if (scenes?.length > 0) {
     const sceneRecords = scenes.map((s: string, i: number) => ({ session_id: session.id, name: s, order_index: i }));

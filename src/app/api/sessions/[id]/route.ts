@@ -25,6 +25,12 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json(data);
   }
+  if (body.action === "restart") {
+    // Restart a completed session - set status back to active
+    const { data, error } = await supabase.from("sessions").update({ status: "active", ended_at: null }).eq("id", id).eq("status", "completed").select().single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(data);
+  }
   const { data, error } = await supabase.from("sessions").update(body).eq("id", id).select().single();
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);

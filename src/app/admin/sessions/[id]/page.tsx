@@ -14,6 +14,7 @@ import {
   Loader2,
   Layout,
   Edit2,
+  RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,6 +66,8 @@ export default function SessionDetailPage({
   const [editSceneName, setEditSceneName] = useState("");
   const [editSceneDescription, setEditSceneDescription] = useState("");
   const [savingScene, setSavingScene] = useState(false);
+  const [restartDialog, setRestartDialog] = useState(false);
+  const [restarting, setRestarting] = useState(false);
 
   useEffect(() => {
     fetchSession(); /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -93,6 +96,20 @@ export default function SessionDetailPage({
       body: JSON.stringify({ action: "end" }),
     });
     fetchSession();
+  }
+  async function handleRestartSession() {
+    setRestarting(true);
+    try {
+      await fetch(`/api/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "restart" }),
+      });
+      setRestartDialog(false);
+      fetchSession();
+    } finally {
+      setRestarting(false);
+    }
   }
   async function handleAddTester() {
     if (!newTesterName.trim()) return;
@@ -223,9 +240,15 @@ export default function SessionDetailPage({
             </Button>
           )}
           {session.status === "completed" && (
-            <Link href={`/admin/sessions/${id}/report`}>
-              <Button>View Report</Button>
-            </Link>
+            <>
+              <Button variant="outline" onClick={() => setRestartDialog(true)}>
+                <RotateCcw className="w-4 h-4" />
+                Restart Session
+              </Button>
+              <Link href={`/admin/sessions/${id}/report`}>
+                <Button>View Report</Button>
+              </Link>
+            </>
           )}
         </div>
       </div>
@@ -618,6 +641,36 @@ export default function SessionDetailPage({
               disabled={savingScene || !editSceneName.trim()}
             >
               {savingScene && <Loader2 className="w-4 h-4 animate-spin" />}Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={restartDialog} onOpenChange={setRestartDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Restart Session?</DialogTitle>
+            <DialogDescription>
+              This will set the session back to active. Testers will be able to
+              rejoin using their existing invite links.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="rounded-lg bg-secondary/50 p-3 text-sm">
+              <p className="font-medium mb-1">What happens when you restart:</p>
+              <ul className="text-muted-foreground space-y-1">
+                <li>• All existing notes are preserved</li>
+                <li>• Testers can rejoin with the same links</li>
+                <li>• Session becomes active for new notes</li>
+              </ul>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setRestartDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleRestartSession} disabled={restarting}>
+              {restarting && <Loader2 className="w-4 h-4 animate-spin" />}
+              Restart Session
             </Button>
           </DialogFooter>
         </DialogContent>
