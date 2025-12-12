@@ -1,0 +1,10 @@
+export type SessionStatus = "draft" | "active" | "completed";
+export type NoteCategory = "bug" | "feature" | "ux" | "performance" | "other";
+
+export interface Session { id: string; name: string; build_version: string | null; status: SessionStatus; created_at: string; started_at: string | null; ended_at: string | null; }
+export interface Scene { id: string; session_id: string; name: string; order_index: number; }
+export interface Tester { id: string; session_id: string; name: string; invite_token: string; created_at: string; }
+export interface Note { id: string; session_id: string; scene_id: string; tester_id: string; audio_url: string | null; raw_transcript: string | null; edited_transcript: string | null; category: NoteCategory; auto_classified: boolean; created_at: string; }
+export interface SessionWithScenes extends Session { scenes: Scene[]; }
+export interface SessionWithDetails extends Session { scenes: Scene[]; testers: Tester[]; notes: NoteWithDetails[]; }
+export interface NoteWithDetails extends Note { scene: Scene; tester: Tester; }

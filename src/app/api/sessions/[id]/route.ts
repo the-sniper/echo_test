@@ -1,0 +1,27 @@
+import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("sessions").select("*, scenes (*), testers (*), notes (*, scene:scenes (*), tester:testers (*))").eq("id", id).order("order_index", { referencedTable: "scenes", ascending: true }).single();
+  if (error) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(data);
+}
+
+export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const body = await req.json();
+  const supabase = await createClient();
+  if (body.action === "start") { const { data } = await supabase.from("sessions").update({ status: "active", started_at: new Date().toISOString() }).eq("id", id).select().single(); return NextResponse.json(data); }
+  if (body.action === "end") { const { data } = await supabase.from("sessions").update({ status: "completed", ended_at: new Date().toISOString() }).eq("id", id).select().single(); return NextResponse.json(data); }
+  const { data } = await supabase.from("sessions").update(body).eq("id", id).select().single();
+  return NextResponse.json(data);
+}
+
+export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  await supabase.from("sessions").delete().eq("id", id);
+  return NextResponse.json({ success: true });
+}
