@@ -42,37 +42,37 @@
   --info: 222 70% 55%;
 }
 
-/* Dark Mode - Alpine Echo */
+/* Dark Mode - Deep Ocean (#001825 based) */
 .dark {
-  --background: 244 35% 7%;
-  --foreground: 224 60% 93%;
-  --card: 244 35% 10%;
-  --card-foreground: 224 60% 93%;
-  --popover: 244 35% 10%;
-  --popover-foreground: 224 60% 93%;
+  --background: 205 75% 8%;
+  --foreground: 205 30% 93%;
+  --card: 205 65% 11%;
+  --card-foreground: 205 30% 93%;
+  --popover: 205 65% 11%;
+  --popover-foreground: 205 30% 93%;
   
   /* Primary: #5271C0 - Alpine Blue */
   --primary: 224 50% 54%;
-  --primary-foreground: 224 60% 98%;
+  --primary-foreground: 205 30% 98%;
   
-  /* Secondary based on #283B60 */
-  --secondary: 220 42% 16%;
-  --secondary-foreground: 224 60% 90%;
+  /* Secondary based on #001825 shades */
+  --secondary: 205 55% 15%;
+  --secondary-foreground: 205 30% 90%;
   
-  /* Muted based on #506695 */
-  --muted: 220 42% 16%;
-  --muted-foreground: 220 30% 55%;
+  /* Muted based on #001825 shades */
+  --muted: 205 55% 15%;
+  --muted-foreground: 205 30% 55%;
   
   /* Accent: #95B2F8 - Light blue */
   --accent: 222 89% 78%;
-  --accent-foreground: 244 35% 10%;
+  --accent-foreground: 205 75% 8%;
   
   --destructive: 0 72% 55%;
   --destructive-foreground: 210 40% 98%;
   
-  /* Borders based on #506695 */
-  --border: 220 30% 20%;
-  --input: 220 30% 20%;
+  /* Borders based on #001825 shades */
+  --border: 205 45% 20%;
+  --input: 205 45% 20%;
   --ring: 224 50% 54%;
   
   /* Additional semantic colors */
@@ -109,8 +109,8 @@ body {
   background: 
     radial-gradient(at 27% 37%, hsla(224, 50%, 54%, 0.15) 0px, transparent 50%),
     radial-gradient(at 97% 21%, hsla(222, 89%, 78%, 0.08) 0px, transparent 50%),
-    radial-gradient(at 52% 99%, hsla(220, 42%, 27%, 0.12) 0px, transparent 50%),
-    radial-gradient(at 10% 29%, hsla(244, 35%, 23%, 0.1) 0px, transparent 50%);
+    radial-gradient(at 52% 99%, hsla(205, 55%, 22%, 0.12) 0px, transparent 50%),
+    radial-gradient(at 10% 29%, hsla(205, 65%, 16%, 0.1) 0px, transparent 50%);
 }
 
 /* Glassmorphism - Light mode */
@@ -122,9 +122,9 @@ body {
 
 /* Glassmorphism - Dark mode */
 .dark .glass {
-  background: hsla(244, 35%, 10%, 0.8);
+  background: hsla(205, 65%, 11%, 0.8);
   backdrop-filter: blur(16px);
-  border: 1px solid hsla(220, 30%, 40%, 0.15);
+  border: 1px solid hsla(205, 45%, 35%, 0.15);
 }
 
 /* Recording indicator */
@@ -184,15 +184,15 @@ body {
 
 /* Smooth scrollbar - Dark mode */
 .dark ::-webkit-scrollbar-track {
-  background: hsl(244 35% 8%);
+  background: hsl(205 75% 7%);
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: hsl(220 30% 22%);
+  background: hsl(205 45% 22%);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: hsl(220 30% 28%);
+  background: hsl(205 45% 28%);
 }
 
 /* Icon styling utility */
