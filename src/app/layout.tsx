@@ -1,6 +1,9 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PWAProvider } from "@/components/pwa-provider";
+import { InstallBanner } from "@/components/install-banner";
+import { ServiceWorkerRegistration } from "@/components/service-worker-registration";
 import { Toaster } from "@/components/ui/toaster";
 import "./globals.css";
 
@@ -18,13 +21,60 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = { 
   title: "Echo Test - Voice-Based Testing Notes", 
-  description: "Capture unbiased tester feedback with voice notes and automatic transcription." 
+  description: "Capture unbiased tester feedback with voice notes and automatic transcription.",
+  manifest: "/manifest.json",
+  icons: {
+    icon: "/favicon.svg",
+    apple: "/icons/apple-touch-icon.svg",
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Echo Test",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
+  ],
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* PWA meta tags for iOS */}
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.svg" />
+        <link rel="apple-touch-icon" sizes="152x152" href="/icons/icon-152x152.svg" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.svg" />
+        <link rel="apple-touch-icon" sizes="192x192" href="/icons/icon-192x192.svg" />
+        
+        {/* Splash screens for iOS */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Echo Test" />
+        
+        {/* Android/Chrome meta tags */}
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="application-name" content="Echo Test" />
+        
+        {/* Microsoft Tiles */}
+        <meta name="msapplication-TileColor" content="#0a0a0a" />
+        <meta name="msapplication-tap-highlight" content="no" />
+        
         <script
           dangerouslySetInnerHTML={{
             __html: `
@@ -45,8 +95,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className={`${jakarta.variable} ${mono.variable} font-sans antialiased`}>
         <ThemeProvider defaultTheme="dark" storageKey="echo-test-theme">
-          {children}
-          <Toaster />
+          <PWAProvider>
+            {children}
+            <InstallBanner />
+            <ServiceWorkerRegistration />
+            <Toaster />
+          </PWAProvider>
         </ThemeProvider>
       </body>
     </html>

@@ -6,7 +6,13 @@ import { Mic, ArrowRight, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function JoinPage() {
@@ -23,10 +29,16 @@ export default function JoinPage() {
     try {
       const res = await fetch(`/api/join/${token.trim()}`);
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Invalid invite code"); return; }
+      if (!res.ok) {
+        setError(data.error || "Invalid invite code");
+        return;
+      }
       router.push(`/join/${token.trim()}`);
-    } catch { setError("Failed to join"); }
-    finally { setLoading(false); }
+    } catch {
+      setError("Failed to join");
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -40,29 +52,38 @@ export default function JoinPage() {
             {/* <div className="w-11 h-11 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow">
               <Mic className="w-5 h-5 text-white" strokeWidth={2} />
             </div> */}
-            <span className="font-semibold text-xl tracking-tight">Echo Test</span>
+            <span className="font-semibold text-xl tracking-tight">
+              Echo Test
+            </span>
           </Link>
         </div>
-        
+
         <Card>
           <CardHeader className="text-center pb-4">
             <CardTitle className="text-xl">Join Test Session</CardTitle>
-            <CardDescription>Enter your invite code to get started</CardDescription>
+            <CardDescription>
+              Enter your invite code to get started
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleJoin} className="space-y-5">
               <div className="space-y-2">
                 <Label htmlFor="token">Invite Code</Label>
-                <Input 
-                  id="token" 
-                  value={token} 
-                  onChange={(e) => setToken(e.target.value)} 
-                  placeholder="Enter your invite code" 
-                  className="text-center text-lg tracking-wider h-12" 
+                <Input
+                  id="token"
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  placeholder="Enter your invite code"
+                  className="text-center text-lg tracking-wider h-12"
                 />
                 {error && <p className="text-sm text-destructive">{error}</p>}
               </div>
-              <Button type="submit" className="w-full" size="lg" disabled={loading || !token.trim()}>
+              <Button
+                type="submit"
+                className="w-full"
+                size="lg"
+                disabled={loading || !token.trim()}
+              >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
@@ -75,9 +96,12 @@ export default function JoinPage() {
             </form>
           </CardContent>
         </Card>
-        
+
         <p className="text-center text-sm text-muted-foreground">
-          Don&apos;t have a code? <Link href="/" className="text-primary hover:underline">Contact your admin</Link>
+          Managing a session?{" "}
+          <Link href="/admin/login" className="text-primary hover:underline">
+            Login here
+          </Link>
         </p>
       </div>
     </div>
