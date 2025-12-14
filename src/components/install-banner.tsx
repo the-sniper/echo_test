@@ -6,13 +6,13 @@ import { Button } from "./ui/button";
 import Image from "next/image";
 
 export function InstallBanner() {
-  const { 
-    showInstallBanner, 
-    isIOS, 
-    isInstalled, 
+  const {
+    showInstallBanner,
+    isIOS,
+    isInstalled,
     isStandalone,
-    triggerInstall, 
-    dismissInstallBanner 
+    triggerInstall,
+    dismissInstallBanner,
   } = usePWA();
 
   // Don't show if already installed or in standalone mode
@@ -26,7 +26,12 @@ export function InstallBanner() {
         <div className="relative flex items-center gap-3 rounded-xl bg-card border border-border shadow-lg p-3 backdrop-blur-sm">
           {/* App Icon */}
           <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-card flex items-center justify-center overflow-hidden">
-            <Image src="/icons/icon-96x96.svg" alt="AirLog" width={40} height={40} />
+            <Image
+              src="/icons/icon-96x96.svg"
+              alt="AirLog"
+              width={40}
+              height={40}
+            />
           </div>
 
           {/* Content */}
@@ -35,10 +40,9 @@ export function InstallBanner() {
               Install AirLog
             </p>
             <p className="text-xs text-muted-foreground">
-              {isIOS 
-                ? "Tap Share then \"Add to Home Screen\"" 
-                : "Add to your home screen for quick access"
-              }
+              {isIOS
+                ? 'Tap Share then "Add to Home Screen"'
+                : "Add to your home screen for quick access"}
             </p>
           </div>
 
@@ -48,23 +52,18 @@ export function InstallBanner() {
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-                onClick={dismissInstallBanner}
-              >
-                <Share className="h-4 w-4 text-green-500" />
-                <span className="sr-only">Share instructions</span>
-              </Button>
-            ) : (
-              <Button
-                size="sm"
-                className="h-8 px-3"
+                className="h-8 px-3 text-muted-foreground hover:text-foreground"
                 onClick={triggerInstall}
               >
+                <Share className="h-4 w-4 text-green-500" />
+              </Button>
+            ) : (
+              <Button size="sm" className="h-8 px-3" onClick={triggerInstall}>
                 <Download className="h-4 w-4 mr-1" />
                 Install
               </Button>
             )}
-            
+
             <Button
               size="sm"
               variant="ghost"
