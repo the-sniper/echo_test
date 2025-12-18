@@ -227,7 +227,7 @@ export default function TesterSessionPage({
                   Session Not Started
                 </h2>
                 <p className="text-muted-foreground mb-4">
-                  Please wait for the admin.
+                  Please wait for the admin to begin the session.
                 </p>
               </>
             ) : (
