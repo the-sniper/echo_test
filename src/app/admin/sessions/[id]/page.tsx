@@ -26,6 +26,7 @@ import {
   Filter,
   X,
   MoreVertical,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,6 +58,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { formatDate, getStatusLabel, getCategoryLabel } from "@/lib/utils";
+import { AISummaryDialog } from "@/components/ai-summary-dialog";
+import { NoteAISummaryDialog } from "@/components/note-ai-summary-dialog";
+import { AISummaryViewDialog } from "@/components/ai-summary-view-dialog";
 import type {
   SessionWithDetails,
   Tester,
@@ -116,6 +120,141 @@ function FormattedDescription({ text }: { text: string }) {
   return <div className="text-sm text-muted-foreground space-y-2">{elements}</div>;
 }
 
+// Component to render the session AI summary with proper formatting
+function SessionSummaryContent({ summary }: { summary: string }) {
+  const lines = summary.split("\n");
+  const elements: React.ReactNode[] = [];
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    
+    // Warning headers
+    if (trimmed.startsWith("**") && (trimmed.includes("⚠️") || trimmed.toLowerCase().includes("requiring review"))) {
+      const headerMatch = trimmed.match(/^\*\*(.+?):\*\*\s*(.*)?$/) || trimmed.match(/^\*\*(.+?)\*\*\s*(.*)?$/);
+      if (headerMatch) {
+        elements.push(
+          <div 
+            key={index} 
+            className="rounded-lg bg-yellow-500/10 border border-yellow-500/20"
+            style={{ padding: "10px 15px", margin: "30px 0 10px" }}
+          >
+            <h4 className="font-semibold text-yellow-600 dark:text-yellow-400 m-0">{headerMatch[1].replace(/:$/, "")}:</h4>
+            {headerMatch[2] && <p className="text-sm text-muted-foreground m-0">{headerMatch[2]}</p>}
+          </div>
+        );
+        return;
+      }
+    }
+    
+    // Bold headers like **Summary Overview:**
+    if (trimmed.startsWith("**") && trimmed.includes(":**")) {
+      const headerMatch = trimmed.match(/^\*\*(.+?):\*\*\s*(.*)?$/);
+      if (headerMatch) {
+        elements.push(
+          <div key={index} className="mt-6 first:mt-0">
+            <h4 className="font-semibold text-foreground text-base mb-2">{headerMatch[1]}:</h4>
+            {headerMatch[2] && <p className="text-sm text-muted-foreground">{headerMatch[2]}</p>}
+          </div>
+        );
+        return;
+      }
+    }
+    
+    // Bullet points with category tags like - **[Bug]** - Scene:
+    if (trimmed.startsWith("- **[")) {
+      const match = trimmed.match(/^-\s*\*\*\[(\w+)\]\*\*\s*(.+)$/);
+      if (match) {
+        const category = match[1];
+        const content = match[2];
+        const categoryColor: Record<string, string> = {
+          BUG: "bg-red-500/20 text-red-600 dark:text-red-400",
+          FEATURE: "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+          UX: "bg-blue-500/20 text-blue-600 dark:text-blue-400",
+          PERFORMANCE: "bg-orange-500/20 text-orange-600 dark:text-orange-400",
+          OTHER: "bg-gray-500/20 text-gray-600 dark:text-gray-400",
+        };
+        const colorClass = categoryColor[category.toUpperCase()] || "bg-gray-500/20 text-gray-600";
+        
+        elements.push(
+          <div key={index} className="flex gap-3 mt-4 first:mt-0 p-3 rounded-lg bg-secondary/30">
+            <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-medium ${colorClass}`}>
+              {category}
+            </span>
+            <span 
+              className="text-sm flex-1"
+              dangerouslySetInnerHTML={{ 
+                __html: content.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+              }}
+            />
+          </div>
+        );
+        return;
+      }
+    }
+    
+    // Reported by line
+    if (trimmed.startsWith("- *Reported by:") || trimmed.startsWith("*Reported by:")) {
+      const reporter = trimmed.replace(/^-?\s*\*Reported by:\s*/, "").replace(/\*$/, "");
+      elements.push(
+        <p key={index} className="text-xs text-muted-foreground ml-16 -mt-2 mb-3 italic">
+          Reported by: {reporter}
+        </p>
+      );
+      return;
+    }
+    
+    // Issue line
+    if (trimmed.startsWith("- *Issue:") || trimmed.startsWith("*Issue:")) {
+      const issue = trimmed.replace(/^-?\s*\*Issue:\s*/, "").replace(/\*$/, "");
+      elements.push(
+        <p key={index} className="text-xs text-yellow-600 dark:text-yellow-400 ml-4 -mt-1 mb-2 italic">
+          Issue: {issue}
+        </p>
+      );
+      return;
+    }
+    
+    // Regular bullet points
+    if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+      const bulletContent = trimmed.slice(2);
+      const formattedContent = bulletContent.replace(
+        /\*\*(.+?)\*\*/g,
+        '<strong class="font-semibold">$1</strong>'
+      );
+      elements.push(
+        <div key={index} className="flex gap-2 ml-2 mt-2">
+          <span className="text-primary shrink-0">•</span>
+          <span 
+            className="text-sm text-muted-foreground flex-1"
+            dangerouslySetInnerHTML={{ __html: formattedContent }}
+          />
+        </div>
+      );
+      return;
+    }
+    
+    // Empty lines
+    if (trimmed === "") {
+      return;
+    }
+    
+    // Regular text
+    const formattedText = trimmed.replace(
+      /\*\*(.+?)\*\*/g,
+      '<strong class="font-semibold">$1</strong>'
+    );
+    elements.push(
+      <p 
+        key={index} 
+        className="text-sm text-muted-foreground mt-2"
+        dangerouslySetInnerHTML={{ __html: formattedText }}
+      />
+    );
+  });
+
+  return <div className="space-y-1">{elements}</div>;
+}
+
 export default function SessionDetailPage({
   params,
 }: {
@@ -170,6 +309,13 @@ export default function SessionDetailPage({
   const [noteCategoryFilter, setNoteCategoryFilter] = useState<string>("all");
   const [noteSceneFilter, setNoteSceneFilter] = useState<string>("all");
   const [noteTesterFilter, setNoteTesterFilter] = useState<string>("all");
+  
+  // AI Summary dialog state
+  const [aiSummaryDialog, setAISummaryDialog] = useState(false);
+  
+  // Note-level AI Summary state
+  const [noteAISummaryNote, setNoteAISummaryNote] = useState<NoteWithDetails | null>(null);
+  const [viewSummaryNote, setViewSummaryNote] = useState<NoteWithDetails | null>(null);
   const [editingTester, setEditingTester] = useState<Tester | null>(null);
   const [editTesterFirstName, setEditTesterFirstName] = useState("");
   const [editTesterLastName, setEditTesterLastName] = useState("");
@@ -226,6 +372,15 @@ export default function SessionDetailPage({
     setNoteCategoryFilter("all");
     setNoteSceneFilter("all");
     setNoteTesterFilter("all");
+  }
+
+  function handleNoteUpdated(updatedNote: NoteWithDetails) {
+    if (!session) return;
+    setSession({
+      ...session,
+      notes: session.notes.map((n) => n.id === updatedNote.id ? updatedNote : n),
+    });
+    setNoteAISummaryNote(updatedNote);
   }
 
   useEffect(() => {
@@ -726,6 +881,12 @@ export default function SessionDetailPage({
             <FileText className="w-4 h-4" />
             <span>Notes</span>
           </TabsTrigger>
+          {session.ai_summary && (
+            <TabsTrigger value="summary" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
+              <Sparkles className="w-4 h-4" />
+              <span>Summary</span>
+            </TabsTrigger>
+          )}
         </TabsList>
         <TabsContent value="scenes" className="mt-4">
           <Card>
@@ -988,6 +1149,17 @@ export default function SessionDetailPage({
                       : "Notes visible after session ends"}
                   </CardDescription>
                 </div>
+                {session.status === "completed" && session.notes && session.notes.length > 0 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAISummaryDialog(true)}
+                    className="gap-2"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span className="hidden sm:inline">Summarize Session</span>
+                  </Button>
+                )}
               </div>
               
               {/* Filters - only show when completed and has notes */}
@@ -1090,13 +1262,39 @@ export default function SessionDetailPage({
                           >
                             {getCategoryLabel(n.category)}
                           </Badge>
+                          {n.ai_summary && (
+                            <button
+                              onClick={() => setViewSummaryNote(n)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              AI Summary
+                            </button>
+                          )}
                           <span className="text-sm text-muted-foreground">
                             {n.scene?.name}
                           </span>
                         </div>
-                        <span className="text-xs text-muted-foreground">
-                          {n.tester?.first_name} {n.tester?.last_name} • {formatDate(n.created_at)}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {n.tester?.first_name} {n.tester?.last_name} • {formatDate(n.created_at)}
+                          </span>
+                          {(n.edited_transcript || n.raw_transcript) && (
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2">
+                                  <MoreVertical className="w-4 h-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setNoteAISummaryNote(n)}>
+                                  <Sparkles className="w-4 h-4 mr-2" />
+                                  AI Summary
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          )}
+                        </div>
                       </div>
                       <p className="text-sm">
                         {n.edited_transcript ||
@@ -1117,6 +1315,38 @@ export default function SessionDetailPage({
             </CardContent>
           </Card>
         </TabsContent>
+        
+        {/* Summary Tab */}
+        {session.ai_summary && (
+          <TabsContent value="summary" className="mt-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Sparkles className="w-5 h-5 text-primary" />
+                      Session Summary
+                    </CardTitle>
+                    <CardDescription>
+                      AI-generated actionable items from {session.notes?.length || 0} notes
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAISummaryDialog(true)}
+                  >
+                    <Edit2 className="w-4 h-4" />
+                    <span className="hidden sm:inline">Edit Summary</span>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <SessionSummaryContent summary={session.ai_summary} />
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
       </Tabs>
       <Dialog open={addTesterDialog} onOpenChange={(open) => { if (!open) resetTesterDialog(); else setAddTesterDialog(true); }}>
         <DialogContent className="max-w-lg">
@@ -1577,6 +1807,39 @@ export default function SessionDetailPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Session AI Summary Dialog */}
+      <AISummaryDialog
+        sessionId={id}
+        sessionName={session.name}
+        notesCount={session.notes?.length || 0}
+        open={aiSummaryDialog}
+        onOpenChange={setAISummaryDialog}
+        existingSummary={session.ai_summary}
+        onSummaryApproved={(summary) => {
+          setSession({ ...session, ai_summary: summary });
+        }}
+      />
+
+      {/* Note-level AI Summary Dialog (from three-dot menu) */}
+      {noteAISummaryNote && (
+        <NoteAISummaryDialog
+          sessionId={id}
+          note={noteAISummaryNote}
+          open={!!noteAISummaryNote}
+          onOpenChange={(open) => !open && setNoteAISummaryNote(null)}
+          onNoteUpdated={handleNoteUpdated}
+        />
+      )}
+
+      {/* Note-level AI Summary View Dialog (from badge click - read only) */}
+      {viewSummaryNote && (
+        <AISummaryViewDialog
+          note={viewSummaryNote}
+          open={!!viewSummaryNote}
+          onOpenChange={(open) => !open && setViewSummaryNote(null)}
+        />
+      )}
     </div>
   );
 }

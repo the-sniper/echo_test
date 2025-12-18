@@ -1,6 +1,6 @@
 "use client";
 import { useState, useMemo } from "react";
-import { FileText, Edit2, Check, X, Play, Pause, SlidersHorizontal, Trash2, MoreVertical } from "lucide-react";
+import { FileText, Edit2, Check, X, Play, Pause, SlidersHorizontal, Trash2, MoreVertical, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { formatDate, getCategoryLabel } from "@/lib/utils";
+import { NoteAISummaryDialog } from "@/components/note-ai-summary-dialog";
+import { AISummaryViewDialog } from "@/components/ai-summary-view-dialog";
 import type { Note, NoteWithDetails, NoteCategory, Scene, Tester } from "@/types";
 
 interface Props { notes: (Note | NoteWithDetails)[]; sessionId: string; scenes?: Scene[]; testers?: Tester[]; onNoteUpdated: (note: Note) => void; onNoteDeleted?: (noteId: string) => void; }
@@ -27,6 +29,8 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [aiSummaryNote, setAiSummaryNote] = useState<Note | NoteWithDetails | null>(null);
+  const [viewSummaryNote, setViewSummaryNote] = useState<Note | NoteWithDetails | null>(null);
   
   // Filter state
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
@@ -190,6 +194,15 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
                   <Badge variant={note.category as "bug" | "feature" | "ux" | "performance" | "secondary"} className="cursor-pointer hover:opacity-80" onClick={() => setEditingCategoryId(note.id)}>{getCategoryLabel(note.category)}</Badge>
                 )}
                 {note.auto_classified && <span className="text-xs text-muted-foreground">(auto)</span>}
+                {note.ai_summary && (
+                  <button
+                    onClick={() => setViewSummaryNote(note)}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    AI Summary
+                  </button>
+                )}
                 {scenes && scenes.length > 0 ? (
                   editingSceneId === note.id ? (
                     <Select value={note.scene_id} onValueChange={(value) => updateScene(note.id, value)} onOpenChange={(open) => { if (!open) setEditingSceneId(null); }}>
@@ -212,10 +225,16 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     {(note.edited_transcript || note.raw_transcript) && (
-                      <DropdownMenuItem onClick={() => startEditing(note)}>
-                        <Edit2 className="w-4 h-4 mr-2" />
-                        Edit
-                      </DropdownMenuItem>
+                      <>
+                        <DropdownMenuItem onClick={() => setAiSummaryNote(note)}>
+                          <Sparkles className="w-4 h-4 mr-2" />
+                          AI Summary
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => startEditing(note)}>
+                          <Edit2 className="w-4 h-4 mr-2" />
+                          Edit
+                        </DropdownMenuItem>
+                      </>
                     )}
                     {onNoteDeleted && (
                       <DropdownMenuItem 
@@ -255,6 +274,29 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
           </div>
         ))}
       </CardContent>
+      
+      {/* AI Summary Dialog (from three-dot menu) */}
+      {aiSummaryNote && (
+        <NoteAISummaryDialog
+          sessionId={sessionId}
+          note={aiSummaryNote}
+          open={!!aiSummaryNote}
+          onOpenChange={(open) => !open && setAiSummaryNote(null)}
+          onNoteUpdated={(updatedNote) => {
+            onNoteUpdated(updatedNote);
+            setAiSummaryNote(updatedNote);
+          }}
+        />
+      )}
+      
+      {/* AI Summary View Dialog (from badge click - read only) */}
+      {viewSummaryNote && (
+        <AISummaryViewDialog
+          note={viewSummaryNote}
+          open={!!viewSummaryNote}
+          onOpenChange={(open) => !open && setViewSummaryNote(null)}
+        />
+      )}
     </Card>
   );
 }
