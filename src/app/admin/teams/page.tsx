@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, Users, Trash2, Pencil, Loader2, ChevronRight, UserPlus, Link2, Copy, Check } from "lucide-react";
+import { Plus, Users, Trash2, Pencil, Loader2, ChevronRight, UserPlus, Link2, Copy, Check, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -286,10 +286,20 @@ export default function TeamsPage() {
                 {selectedTeam ? selectedTeam.name : "Team Members"}
               </CardTitle>
               {selectedTeam && (
-                <Button size="sm" onClick={() => setAddMemberDialog(true)}>
-                  <UserPlus className="w-4 h-4" />
-                  Add Member
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => fetchTeamDetails(selectedTeam.id)}
+                    disabled={loadingTeam}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingTeam ? "animate-spin" : ""}`} />
+                  </Button>
+                  <Button size="sm" onClick={() => setAddMemberDialog(true)}>
+                    <UserPlus className="w-4 h-4" />
+                    Add Member
+                  </Button>
+                </div>
               )}
             </div>
             {/* Invite Link Section */}
