@@ -1,12 +1,13 @@
 "use client";
 import { useState, useMemo } from "react";
-import { FileText, Edit2, Check, X, Play, Pause, SlidersHorizontal, Trash2, MoreVertical, Sparkles } from "lucide-react";
+import { FileText, Edit2, Check, X, Play, Pause, SlidersHorizontal, Trash2, MoreVertical, Sparkles, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { formatDate, getCategoryLabel } from "@/lib/utils";
 import { NoteAISummaryDialog } from "@/components/note-ai-summary-dialog";
 import { AISummaryViewDialog } from "@/components/ai-summary-view-dialog";
@@ -29,6 +30,8 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editingSceneId, setEditingSceneId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteNoteDialog, setDeleteNoteDialog] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<Note | NoteWithDetails | null>(null);
   const [aiSummaryNote, setAiSummaryNote] = useState<Note | NoteWithDetails | null>(null);
   const [viewSummaryNote, setViewSummaryNote] = useState<Note | NoteWithDetails | null>(null);
   
@@ -73,11 +76,21 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
     } catch {} 
     finally { setEditingSceneId(null); }
   }
-  async function deleteNote(noteId: string) {
-    setDeletingId(noteId);
+  function openDeleteNoteDialog(note: Note | NoteWithDetails) {
+    setNoteToDelete(note);
+    setDeleteNoteDialog(true);
+  }
+
+  async function deleteNote() {
+    if (!noteToDelete) return;
+    setDeletingId(noteToDelete.id);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/notes/${noteId}`, { method: "DELETE" });
-      if (res.ok && onNoteDeleted) { onNoteDeleted(noteId); }
+      const res = await fetch(`/api/sessions/${sessionId}/notes/${noteToDelete.id}`, { method: "DELETE" });
+      if (res.ok && onNoteDeleted) { 
+        onNoteDeleted(noteToDelete.id);
+        setDeleteNoteDialog(false);
+        setNoteToDelete(null);
+      }
     } catch {}
     finally { setDeletingId(null); }
   }
@@ -238,8 +251,7 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
                     )}
                     {onNoteDeleted && (
                       <DropdownMenuItem 
-                        onClick={() => deleteNote(note.id)} 
-                        disabled={deletingId === note.id}
+                        onClick={() => openDeleteNoteDialog(note)} 
                         className="text-destructive focus:text-destructive"
                       >
                         <Trash2 className="w-4 h-4 mr-2" />
@@ -297,6 +309,41 @@ export function NotesList({ notes, sessionId, scenes, testers, onNoteUpdated, on
           onOpenChange={(open) => !open && setViewSummaryNote(null)}
         />
       )}
+
+      {/* Delete Note Confirmation Dialog */}
+      <Dialog open={deleteNoteDialog} onOpenChange={setDeleteNoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Note?</DialogTitle>
+            <DialogDescription className="space-y-1">
+              <span className="block">Are you sure you want to delete this note?</span>
+              <span className="block">This action cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+          {noteToDelete && (noteToDelete.edited_transcript || noteToDelete.raw_transcript) && (
+            <div className="py-2">
+              <div className="rounded-lg bg-secondary/50 p-3 text-sm">
+                <p className="text-muted-foreground line-clamp-3">
+                  {noteToDelete.edited_transcript || noteToDelete.raw_transcript}
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteNoteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={deleteNote}
+              disabled={deletingId === noteToDelete?.id}
+            >
+              {deletingId === noteToDelete?.id && <Loader2 className="w-4 h-4 animate-spin" />}
+              Delete Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

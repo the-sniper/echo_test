@@ -112,7 +112,7 @@ export default function AdminDashboard() {
                   )}
                   {s.status === "completed" && (
                     <Link href={`/admin/sessions/${s.id}/report`}>
-                      <Button variant="outline" size="sm">Report</Button>
+                      <Button variant="outline" size="sm">View Report</Button>
                     </Link>
                   )}
                   <Button 

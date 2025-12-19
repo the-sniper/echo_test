@@ -232,7 +232,7 @@ export default function NewSessionPage() {
                 </div>
               </div>
             )}
-            {issueOptions.length > 0 && (
+            {issueOptions.length > 0 && defaultIssueOptions.some(option => !issueOptions.includes(option)) && (
               <div className="space-y-2">
                 <p className="text-sm text-muted-foreground">Add more:</p>
                 <div className="flex flex-wrap gap-2">

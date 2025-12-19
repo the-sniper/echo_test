@@ -115,7 +115,7 @@ export function AdminSidebar() {
   );
 }
 
-export function AdminMobileHeader() {
+export function AdminMobileHeader({ hideBottomNav = false }: { hideBottomNav?: boolean } = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
@@ -201,55 +201,57 @@ export function AdminMobileHeader() {
       </header>
 
       {/* Bottom Navigation Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 z-40">
-        {/* Background with notch cutout effect */}
-        <div className="absolute inset-0 bg-card/95 backdrop-blur-xl border-t border-border/50" />
-        
-        <div className="relative flex items-center justify-around h-full px-6">
-          <Link 
-            href="/admin" 
-            className={`flex flex-col items-center gap-1 py-2 transition-all ${
-              isActive("/admin") 
-                ? "text-primary" 
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <LayoutGrid className="w-6 h-6" strokeWidth={1.5} />
-            <span className="text-[10px] font-medium">Sessions</span>
-          </Link>
+      {!hideBottomNav && (
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-20 z-40">
+          {/* Background with notch cutout effect */}
+          <div className="absolute inset-0 bg-card/95 backdrop-blur-xl border-t border-border/50" />
           
-          {/* Prominent Join Button */}
-          <Link 
-            href="/join" 
-            className="flex flex-col items-center -mt-8"
-          >
-            <div className="relative group">
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-primary/40 rounded-full blur-xl group-hover:blur-2xl transition-all" />
-              {/* Outer ring */}
-              <div className="relative w-16 h-16 rounded-full bg-gradient-to-b from-primary to-primary/80 p-[3px] shadow-xl shadow-primary/25">
-                {/* Inner button */}
-                <div className="w-full h-full rounded-full bg-primary flex items-center justify-center">
-                  <UserPlus className="w-7 h-7 text-primary-foreground" strokeWidth={2} />
+          <div className="relative flex items-center justify-around h-full px-6">
+            <Link 
+              href="/admin" 
+              className={`flex flex-col items-center gap-1 py-2 transition-all ${
+                isActive("/admin") 
+                  ? "text-primary" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <LayoutGrid className="w-6 h-6" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">Sessions</span>
+            </Link>
+            
+            {/* Prominent Join Button */}
+            <Link 
+              href="/join" 
+              className="flex flex-col items-center -mt-8"
+            >
+              <div className="relative group">
+                {/* Glow effect */}
+                <div className="absolute inset-0 bg-primary/40 rounded-full blur-xl group-hover:blur-2xl transition-all" />
+                {/* Outer ring */}
+                <div className="relative w-16 h-16 rounded-full bg-gradient-to-b from-primary to-primary/80 p-[3px] shadow-xl shadow-primary/25">
+                  {/* Inner button */}
+                  <div className="w-full h-full rounded-full bg-primary flex items-center justify-center">
+                    <UserPlus className="w-7 h-7 text-primary-foreground" strokeWidth={2} />
+                  </div>
                 </div>
               </div>
-            </div>
-            <span className="text-[10px] font-semibold text-primary mt-1">Join</span>
-          </Link>
-          
-          <Link 
-            href="/admin/teams" 
-            className={`flex flex-col items-center gap-1 py-2 transition-all ${
-              isActive("/admin/teams") 
-                ? "text-primary" 
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            <Users2 className="w-6 h-6" strokeWidth={1.5} />
-            <span className="text-[10px] font-medium">Teams</span>
-          </Link>
-        </div>
-      </nav>
+              <span className="text-[10px] font-semibold text-primary mt-1">Join</span>
+            </Link>
+            
+            <Link 
+              href="/admin/teams" 
+              className={`flex flex-col items-center gap-1 py-2 transition-all ${
+                isActive("/admin/teams") 
+                  ? "text-primary" 
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Users2 className="w-6 h-6" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">Teams</span>
+            </Link>
+          </div>
+        </nav>
+      )}
 
       <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
         <DialogContent>

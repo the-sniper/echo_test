@@ -5,19 +5,20 @@ import Image from "next/image";
 import {
   Mic,
   AlertCircle,
+  AlertTriangle,
   Clock,
   CheckCircle,
   Keyboard,
   Info,
   ChevronDown,
-  ChevronRight,
+  ChevronUp,
   LogOut,
-  AlertTriangle,
   Check,
+  X,
   ClipboardList,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Select,
@@ -26,7 +27,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VoiceRecorder } from "@/components/voice-recorder";
 import { TextNoteInput } from "@/components/text-note-input";
 import { NotesList } from "@/components/notes-list";
@@ -105,12 +105,14 @@ export default function TesterSessionPage({
   const [notes, setNotes] = useState<Note[]>([]);
   const [hasLeft, setHasLeft] = useState(false);
   const [descriptionExpanded, setDescriptionExpanded] = useState(false);
+  const [issuesExpanded, setIssuesExpanded] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [reportedIssues, setReportedIssues] = useState<string[]>([]);
-  const [issuesExpanded, setIssuesExpanded] = useState(false);
-  const [pollExpanded, setPollExpanded] = useState(false);
   const [pollResponses, setPollResponses] = useState<Record<string, string[]>>({});
   const [savingPollResponse, setSavingPollResponse] = useState<string | null>(null);
+  const [recorderExpanded, setRecorderExpanded] = useState(false);
+  const [pollPanelOpen, setPollPanelOpen] = useState(false);
+  const [inputMode, setInputMode] = useState<"voice" | "text">("voice");
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const sceneInitializedRef = useRef(false);
   const issuesInitializedRef = useRef(false);
@@ -365,350 +367,417 @@ export default function TesterSessionPage({
     (s: Scene) => s.id === selectedScene
   );
 
+  // Calculate poll status for current scene
+  const pollQuestions = currentScene?.poll_questions || [];
+  const hasPollQuestions = pollQuestions.length > 0;
+  const answeredPollCount = pollQuestions.filter((q: PollQuestion) => pollResponses[q.id]?.length > 0).length;
+  const unansweredRequired = pollQuestions.filter((q: PollQuestion) => q.required && !pollResponses[q.id]?.length);
+  const hasUnansweredRequired = unansweredRequired.length > 0;
+
   return (
     <>
-      {/* Show admin mobile navigation when logged in as admin */}
-      {isAdmin && <AdminMobileHeader />}
+      {/* Show admin mobile navigation when logged in as admin (hide bottom nav to not overlap with tester FAB) */}
+      {isAdmin && <AdminMobileHeader hideBottomNav />}
       
-      <div className={`min-h-screen gradient-mesh ${isAdmin ? "pt-16 pb-24 md:pt-0 md:pb-0" : ""}`}>
+      <div className={`min-h-screen gradient-mesh flex flex-col ${isAdmin ? "pt-16 md:pt-0" : ""}`}>
+        {/* Clean Header */}
         <header className="border-b border-border bg-card/80 glass sticky top-0 z-40">
-          <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
+          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
             {/* Left: Session info */}
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
                 <Mic className="w-4 h-4 text-primary-foreground" />
               </div>
               <div className="min-w-0">
-                <h1 className="font-semibold truncate text-sm sm:text-base">{session.name}</h1>
-                <p className="text-xs text-muted-foreground truncate">
-                  Testing as {tester.first_name} {tester.last_name}
+                <h1 className="font-semibold truncate">{session.name}</h1>
+                <p className="text-sm text-muted-foreground truncate">
+                  {tester.first_name} {tester.last_name}
                 </p>
               </div>
             </div>
             
-            {/* Center: Logo (desktop only) */}
-            <div className="hidden md:flex absolute left-1/2 -translate-x-1/2">
-              <Link href="/">
-                <Image src="/logo.svg" alt="AirLog" width={100} height={28} className="dark:hidden" />
-                <Image src="/logo-dark.svg" alt="AirLog" width={100} height={28} className="hidden dark:block" />
-              </Link>
-            </div>
-            
-            {/* Right: Actions */}
-            <div className="flex items-center gap-1 sm:gap-2">
-              <div className="flex items-center gap-1.5 mr-1 sm:mr-2">
+            {/* Right: Status + Actions */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10">
                 <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              <span className="text-xs sm:text-sm text-muted-foreground">Live</span>
+                <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
+              </div>
+              <div className="hidden sm:block">
+                <ThemeToggle />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setHasLeft(true)}
+                className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              >
+                <LogOut className="w-4 h-4 mr-1.5" />
+                <span className="hidden sm:inline">Leave</span>
+              </Button>
             </div>
-            <ThemeToggle />
-            {/* Mobile: Icon button */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => setHasLeft(true)}
-              className="sm:hidden text-destructive hover:text-destructive hover:bg-destructive/10"
-              title="End Session"
-            >
-              <LogOut className="w-5 h-5" />
-            </Button>
-            {/* Desktop: Text button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setHasLeft(true)}
-              className="hidden sm:flex border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-            >
-              End Session
-            </Button>
           </div>
-        </div>
-      </header>
-      <main className="container mx-auto px-4 py-8 max-w-2xl space-y-6">
-        <Card>
-          <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground mb-2">Current Scene</p>
-            <Select value={selectedScene} onValueChange={setSelectedScene}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select a scene" />
-              </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
-                {session.scenes?.map((s: Scene) => (
-                  <SelectItem key={s.id} value={s.id}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        </header>
+
+        {/* Main content area */}
+        <main className="flex-1 overflow-y-auto pb-36">
+          <div className="container mx-auto px-4 py-6 max-w-xl space-y-6">
+            
+            {/* Scene Selector - Full width, prominent */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Current Scene</label>
+              <Select value={selectedScene} onValueChange={setSelectedScene}>
+                <SelectTrigger className="w-full h-12 text-base">
+                  <SelectValue placeholder="Select a scene" />
+                </SelectTrigger>
+                <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                  {session.scenes?.map((s: Scene) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* What to test - More prominent */}
             {currentScene && (
-              <div className="mt-4 rounded-lg bg-primary/5 border border-primary/10 overflow-hidden">
-                <button
-                  onClick={() => setDescriptionExpanded(!descriptionExpanded)}
-                  className="w-full p-3 flex items-center gap-2 hover:bg-primary/10 transition-colors text-left"
-                >
-                  <Info className="w-4 h-4 text-primary flex-shrink-0" />
-                  <span className="text-sm font-medium text-primary flex-1">
-                    What to test
-                  </span>
-                  {descriptionExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-primary flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-primary flex-shrink-0" />
-                  )}
-                </button>
-                {descriptionExpanded && (
-                  <div className="px-3 pb-3 pl-9">
-                    {currentScene.description ? (
-                      <FormattedDescription text={currentScene.description} />
-                    ) : (
-                      <p className="text-sm text-muted-foreground/60 italic">
-                        No testing instructions added yet
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-        {session.issue_options && session.issue_options.length > 0 && (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="rounded-lg bg-amber-500/5 border border-amber-500/10 overflow-hidden">
-                <button
-                  onClick={() => setIssuesExpanded(!issuesExpanded)}
-                  className="w-full p-3 flex items-center gap-2 hover:bg-amber-500/10 transition-colors text-left"
-                >
-                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400 flex-1">
-                    Report General Issues
-                    {reportedIssues.length > 0 && (
-                      <span className="ml-2 text-xs text-amber-500/70">
-                        ({reportedIssues.length} selected)
-                      </span>
-                    )}
-                  </span>
-                  {issuesExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                  )}
-                </button>
-                {issuesExpanded && (
-                  <div className="px-3 pb-3">
-                    <div className="grid grid-cols-2 gap-2">
-                      {session.issue_options.map((issue: string) => {
-                        const isChecked = reportedIssues.includes(issue);
-                        return (
-                          <button
-                            key={issue}
-                            type="button"
-                            onClick={() => toggleIssue(issue)}
-                            className={`flex items-center gap-2 p-3 rounded-lg border text-left text-sm transition-colors ${
-                              isChecked
-                                ? "bg-amber-500/10 border-amber-500/50 text-amber-600 dark:text-amber-400"
-                                : "bg-secondary/30 border-border hover:bg-secondary/50"
-                            }`}
-                          >
-                            <div
-                              className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
-                                isChecked
-                                  ? "bg-amber-500 border-amber-500"
-                                  : "border-muted-foreground/30"
-                              }`}
-                            >
-                              {isChecked && <Check className="w-3 h-3 text-white" />}
-                            </div>
-                            <span className="truncate">{issue}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-        {currentScene && currentScene.poll_questions && currentScene.poll_questions.length > 0 && (() => {
-          const requiredQuestions = currentScene.poll_questions?.filter((q: PollQuestion) => q.required) || [];
-          const unansweredRequired = requiredQuestions.filter((q: PollQuestion) => !pollResponses[q.id]?.length);
-          const hasUnansweredRequired = unansweredRequired.length > 0;
-          const allQuestions = currentScene.poll_questions || [];
-          const answeredCount = allQuestions.filter((q: PollQuestion) => pollResponses[q.id]?.length > 0).length;
-          
-          return (
-            <Card>
-              <CardContent className="pt-6">
-                <div className={`rounded-lg overflow-hidden ${
-                  hasUnansweredRequired 
-                    ? "bg-amber-500/5 border border-amber-500/20" 
-                    : "bg-blue-500/5 border border-blue-500/10"
-                }`}>
+              <Card className="border-primary/20 bg-primary/5">
+                <CardContent className="p-0">
                   <button
-                    onClick={() => setPollExpanded(!pollExpanded)}
-                    className={`w-full p-3 flex items-center gap-2 transition-colors text-left ${
-                      hasUnansweredRequired 
-                        ? "hover:bg-amber-500/10" 
-                        : "hover:bg-blue-500/10"
-                    }`}
+                    onClick={() => setDescriptionExpanded(!descriptionExpanded)}
+                    className="w-full p-4 flex items-center gap-3 text-left hover:bg-primary/5 transition-colors rounded-lg"
                   >
-                    <ClipboardList className={`w-4 h-4 flex-shrink-0 ${
-                      hasUnansweredRequired ? "text-amber-500" : "text-blue-500"
-                    }`} />
-                    <span className={`text-sm font-medium flex-1 ${
-                      hasUnansweredRequired 
-                        ? "text-amber-600 dark:text-amber-400" 
-                        : "text-blue-600 dark:text-blue-400"
-                    }`}>
-                      Scene Poll
-                      {hasUnansweredRequired ? (
-                        <span className="ml-2 text-xs text-amber-500">
-                          ({unansweredRequired.length} required unanswered)
-                        </span>
-                      ) : answeredCount > 0 ? (
-                        <span className="ml-2 text-xs text-blue-500/70">
-                          ({answeredCount}/{allQuestions.length} answered)
-                        </span>
-                      ) : null}
-                    </span>
-                    {pollExpanded ? (
-                      <ChevronDown className={`w-4 h-4 flex-shrink-0 ${
-                        hasUnansweredRequired ? "text-amber-500" : "text-blue-500"
-                      }`} />
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                      <Info className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-primary">What to test</p>
+                      <p className="text-sm text-muted-foreground truncate">
+                        {currentScene.description ? "View testing instructions" : "No instructions yet"}
+                      </p>
+                    </div>
+                    {descriptionExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-primary shrink-0" />
                     ) : (
-                      <ChevronRight className={`w-4 h-4 flex-shrink-0 ${
-                        hasUnansweredRequired ? "text-amber-500" : "text-blue-500"
-                      }`} />
+                      <ChevronDown className="w-5 h-5 text-primary shrink-0" />
                     )}
                   </button>
-                  {pollExpanded && (
-                    <div className="px-3 pb-3 space-y-4">
-                      {currentScene.poll_questions?.map((q: PollQuestion) => {
-                        const isAnswered = (pollResponses[q.id] || []).length > 0;
-                        const isRequiredUnanswered = q.required && !isAnswered;
-                        
-                        return (
-                          <div 
-                            key={q.id} 
-                            className={`space-y-2 ${
-                              isRequiredUnanswered 
-                                ? "p-3 -mx-3 rounded-lg bg-amber-500/5 border border-amber-500/20" 
-                                : ""
-                            }`}
-                          >
-                            <p className="text-sm font-medium flex items-center gap-1">
-                              {q.question}
-                              {q.required && (
-                                <span className={isRequiredUnanswered ? "text-amber-500" : "text-red-500"}>*</span>
-                              )}
-                              {isRequiredUnanswered && (
-                                <span className="text-xs text-amber-500 ml-1">(required)</span>
-                              )}
-                            </p>
-                            <div className="space-y-1.5">
-                              {q.options.map((option, optIndex) => {
-                                const isSelected = (pollResponses[q.id] || []).includes(option);
-                                const isSaving = savingPollResponse === q.id;
-                                return (
-                                  <button
-                                    key={optIndex}
-                                    type="button"
-                                    onClick={() => handlePollResponse(q.id, q.question_type, option)}
-                                    disabled={isSaving}
-                                    className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left text-sm transition-colors ${
-                                      isSelected
-                                        ? "bg-blue-500/10 border-blue-500/50 text-blue-600 dark:text-blue-400"
-                                        : "bg-secondary/30 border-border hover:bg-secondary/50"
-                                    } ${isSaving ? "opacity-50" : ""}`}
-                                  >
-                                    <div
-                                      className={`w-5 h-5 flex items-center justify-center shrink-0 transition-colors ${
-                                        q.question_type === "radio"
-                                          ? `rounded-full border-2 ${
-                                              isSelected
-                                                ? "border-blue-500 bg-blue-500"
-                                                : "border-muted-foreground/30"
-                                            }`
-                                          : `rounded border-2 ${
-                                              isSelected
-                                                ? "border-blue-500 bg-blue-500"
-                                                : "border-muted-foreground/30"
-                                            }`
-                                      }`}
-                                    >
-                                      {isSelected && (
-                                        q.question_type === "radio" ? (
-                                          <div className="w-2 h-2 rounded-full bg-white" />
-                                        ) : (
-                                          <Check className="w-3 h-3 text-white" />
-                                        )
-                                      )}
-                                    </div>
-                                    <span className="flex-1">{option}</span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        );
-                      })}
+                  {descriptionExpanded && (
+                    <div className="px-4 pb-4 pt-0">
+                      <div className="p-4 rounded-lg bg-background/50">
+                        {currentScene.description ? (
+                          <FormattedDescription text={currentScene.description} />
+                        ) : (
+                          <p className="text-sm text-muted-foreground italic">
+                            No testing instructions have been added for this scene.
+                          </p>
+                        )}
+                      </div>
                     </div>
                   )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })()}
-        {currentScene && (
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Add Note</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Tabs defaultValue="voice" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger
-                    value="voice"
-                    className="flex items-center gap-2"
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Report General Issues - Accordion */}
+            {session.issue_options && session.issue_options.length > 0 && (
+              <Card className="border-muted-foreground/20 bg-muted/5">
+                <CardContent className="p-0">
+                  <button
+                    onClick={() => setIssuesExpanded(!issuesExpanded)}
+                    className="w-full p-4 flex items-center gap-3 text-left hover:bg-muted/5 transition-colors rounded-lg"
                   >
-                    <Mic className="w-4 h-4" />
-                    Voice
-                  </TabsTrigger>
-                  <TabsTrigger value="text" className="flex items-center gap-2">
-                    <Keyboard className="w-4 h-4" />
-                    Text
-                  </TabsTrigger>
-                </TabsList>
-                <TabsContent value="voice" className="mt-0">
-                  <VoiceRecorder
-                    sessionId={session.id}
-                    sceneId={selectedScene}
-                    testerId={tester.id}
-                    sceneName={currentScene.name}
-                    onNoteCreated={handleNoteCreated}
-                  />
-                </TabsContent>
-                <TabsContent value="text" className="mt-0">
-                  <TextNoteInput
-                    sessionId={session.id}
-                    sceneId={selectedScene}
-                    testerId={tester.id}
-                    sceneName={currentScene.name}
-                    onNoteCreated={handleNoteCreated}
-                  />
-                </TabsContent>
-              </Tabs>
-            </CardContent>
-          </Card>
+                    <div className="w-10 h-10 rounded-lg bg-muted-foreground/10 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-5 h-5 text-muted-foreground" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium">Report General Issues</p>
+                      <p className="text-xs text-muted-foreground">
+                        System-wide, not scene-specific
+                      </p>
+                    </div>
+                    {issuesExpanded ? (
+                      <ChevronUp className="w-5 h-5 text-muted-foreground shrink-0" />
+                    ) : (
+                      <ChevronDown className="w-5 h-5 text-muted-foreground shrink-0" />
+                    )}
+                  </button>
+                  {issuesExpanded && (
+                    <div className="px-4 pb-4 pt-0">
+                      <div className="flex flex-wrap gap-2">
+                        {session.issue_options.map((issue: string) => {
+                          const isChecked = reportedIssues.includes(issue);
+                          return (
+                            <button
+                              key={issue}
+                              type="button"
+                              onClick={() => toggleIssue(issue)}
+                              className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                                isChecked
+                                  ? "text-white [background:hsl(32deg_81.1%_41.69%)] dark:[background:hsl(32.15deg_33.04%_56.82%/80%)]"
+                                  : "bg-secondary hover:bg-secondary/80"
+                              }`}
+                            >
+                              {isChecked && <Check className="w-3 h-3" />}
+                              {issue}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Notes List */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="font-semibold">Your Notes</h3>
+                <span className="text-sm text-muted-foreground">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
+              </div>
+              <NotesList
+                notes={notes}
+                sessionId={session.id}
+                scenes={session.scenes}
+                onNoteUpdated={handleNoteUpdated}
+                onNoteDeleted={handleNoteDeleted}
+              />
+            </div>
+          </div>
+        </main>
+
+        {/* Poll Panel (separate from recorder) */}
+        {pollPanelOpen && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/50" 
+              onClick={() => setPollPanelOpen(false)}
+            />
+            {/* Panel */}
+            <div className="relative w-full max-w-xl mx-4 mb-0 bg-card border border-border rounded-t-2xl shadow-2xl max-h-[80vh] flex flex-col">
+              {/* Header */}
+              <div className="p-4 border-b border-border flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-2">
+                  <ClipboardList className="w-5 h-5 text-primary" />
+                  <h3 className="font-semibold">Scene Poll</h3>
+                </div>
+                <div className="flex items-center gap-3">
+                  {hasPollQuestions && (
+                    <span className={`text-sm px-2 py-0.5 rounded-full ${
+                      hasUnansweredRequired 
+                        ? "bg-red-500/10 text-red-600 dark:text-red-400" 
+                        : "bg-muted text-muted-foreground"
+                    }`}>
+                      {answeredPollCount}/{pollQuestions.length}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setPollPanelOpen(false)}
+                    className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              {/* Content */}
+              <div className="px-3 py-4 pb-6 overflow-y-auto">
+                {hasPollQuestions ? (
+                  <div className="space-y-3">
+                    {pollQuestions.map((q: PollQuestion, qIndex: number) => {
+                      const isAnswered = (pollResponses[q.id] || []).length > 0;
+                      const isRequiredUnanswered = q.required && !isAnswered;
+                      
+                      return (
+                        <div 
+                          key={q.id} 
+                          className={`space-y-2 p-2 rounded-lg transition-colors ${
+                            isRequiredUnanswered 
+                              ? "bg-red-500/5 border border-red-500/20" 
+                              : ""
+                          }`}
+                        >
+                          <p className="text-sm font-medium">
+                            <span className="text-muted-foreground mr-1.5">{qIndex + 1}.</span>
+                            {q.question}
+                            {q.required && (
+                              <span className="ml-1 text-red-500">*</span>
+                            )}
+                            {isRequiredUnanswered && (
+                              <span className="ml-2 text-xs text-red-500">(required)</span>
+                            )}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {q.options.map((option, optIndex) => {
+                              const isSelected = (pollResponses[q.id] || []).includes(option);
+                              const isSaving = savingPollResponse === q.id;
+                              return (
+                                <button
+                                  key={optIndex}
+                                  type="button"
+                                  onClick={() => handlePollResponse(q.id, q.question_type, option)}
+                                  disabled={isSaving}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-all ${
+                                    isSelected
+                                      ? "bg-primary text-primary-foreground"
+                                      : "bg-secondary hover:bg-secondary/80"
+                                  } ${isSaving ? "opacity-50" : ""}`}
+                                >
+                                  {q.question_type === "radio" ? (
+                                    <div className={`w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center ${
+                                      isSelected ? "border-primary-foreground" : "border-current opacity-60"
+                                    }`}>
+                                      {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-primary-foreground" />}
+                                    </div>
+                                  ) : (
+                                    <div className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${
+                                      isSelected ? "border-primary-foreground bg-primary-foreground/20" : "border-current opacity-60"
+                                    }`}>
+                                      {isSelected && <Check className="w-2.5 h-2.5" />}
+                                    </div>
+                                  )}
+                                  {option}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center">
+                    <ClipboardList className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground">No active polls for this scene</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         )}
-        <NotesList
-          notes={notes}
-          sessionId={session.id}
-          scenes={session.scenes}
-          onNoteUpdated={handleNoteUpdated}
-          onNoteDeleted={handleNoteDeleted}
-        />
-      </main>
+
+        {/* Floating Action Bar */}
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="container mx-auto px-4 max-w-xl">
+            <div className="bg-card border border-border rounded-t-2xl shadow-2xl">
+              {/* Collapsed state - FAB buttons */}
+              {!recorderExpanded ? (
+                <div className="p-5 flex items-center justify-center gap-4">
+                  {/* Text note button */}
+                  <button
+                    onClick={() => {
+                      setInputMode("text");
+                      setRecorderExpanded(true);
+                    }}
+                    className="w-12 h-12 rounded-full bg-secondary flex items-center justify-center hover:bg-secondary/80 transition-colors"
+                    title="Add text note"
+                  >
+                    <Keyboard className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                  
+                  {/* Voice note button (primary) */}
+                  <button
+                    onClick={() => {
+                      setInputMode("voice");
+                      setRecorderExpanded(true);
+                    }}
+                    className="w-16 h-16 rounded-full bg-primary flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg hover:scale-105"
+                    title="Record voice note"
+                  >
+                    <Mic className="w-7 h-7 text-primary-foreground" />
+                  </button>
+                  
+                  {/* Poll button (always visible for consistent UI) */}
+                  <button
+                    onClick={() => setPollPanelOpen(true)}
+                    className={`relative w-12 h-12 rounded-full flex items-center justify-center transition-colors ${
+                      hasUnansweredRequired 
+                        ? "bg-red-500/10 hover:bg-red-500/20" 
+                        : "bg-secondary hover:bg-secondary/80"
+                    }`}
+                    title="Scene Poll"
+                  >
+                    <ClipboardList className={`w-5 h-5 ${hasUnansweredRequired ? "text-red-500" : "text-muted-foreground"}`} />
+                    {hasUnansweredRequired && (
+                      <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-medium">
+                        {unansweredRequired.length}
+                      </span>
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  {/* Expanded state header */}
+                  <div className="p-4 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setInputMode("voice")}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                          inputMode === "voice" 
+                            ? "bg-primary text-primary-foreground" 
+                            : "text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        <Mic className="w-4 h-4" />
+                        Voice
+                      </button>
+                      <button
+                        onClick={() => setInputMode("text")}
+                        className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                          inputMode === "text" 
+                            ? "bg-primary text-primary-foreground" 
+                            : "text-muted-foreground hover:bg-secondary"
+                        }`}
+                      >
+                        <Keyboard className="w-4 h-4" />
+                        Text
+                      </button>
+                    </div>
+                    <button
+                      onClick={() => setRecorderExpanded(false)}
+                      className="p-2 rounded-lg hover:bg-secondary text-muted-foreground"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+                  
+                  {/* Recorder content */}
+                  <div className="p-4 pb-6">
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Adding note for: <span className="font-medium text-foreground">{currentScene?.name}</span>
+                    </p>
+                    {currentScene && inputMode === "voice" ? (
+                      <VoiceRecorder
+                        sessionId={session.id}
+                        sceneId={selectedScene}
+                        testerId={tester.id}
+                        sceneName={currentScene.name}
+                        onNoteCreated={(note) => {
+                          handleNoteCreated(note);
+                          setRecorderExpanded(false);
+                        }}
+                      />
+                    ) : currentScene ? (
+                      <TextNoteInput
+                        sessionId={session.id}
+                        sceneId={selectedScene}
+                        testerId={tester.id}
+                        sceneName={currentScene.name}
+                        onNoteCreated={(note) => {
+                          handleNoteCreated(note);
+                          setRecorderExpanded(false);
+                        }}
+                      />
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+          {/* Safe area padding for mobile */}
+          <div className="h-safe-area-inset-bottom bg-card" />
+        </div>
       </div>
     </>
   );

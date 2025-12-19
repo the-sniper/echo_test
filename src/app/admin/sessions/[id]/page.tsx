@@ -313,9 +313,21 @@ export default function SessionDetailPage({
   const [editSceneDescription, setEditSceneDescription] = useState("");
   const [editScenePollQuestions, setEditScenePollQuestions] = useState<PollQuestionInput[]>([]);
   const [savingScene, setSavingScene] = useState(false);
+  const [deleteSceneDialog, setDeleteSceneDialog] = useState(false);
+  const [sceneToDelete, setSceneToDelete] = useState<Scene | null>(null);
+  const [deletingScene, setDeletingScene] = useState(false);
   const [restartDialog, setRestartDialog] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+
+  // Edit session state
+  const [editSessionDialog, setEditSessionDialog] = useState(false);
+  const [editSessionName, setEditSessionName] = useState("");
+  const [editSessionDescription, setEditSessionDescription] = useState("");
+  const [editSessionBuildVersion, setEditSessionBuildVersion] = useState("");
+  const [editSessionIssueOptions, setEditSessionIssueOptions] = useState<string[]>([]);
+  const [newIssueOption, setNewIssueOption] = useState("");
+  const [savingSession, setSavingSession] = useState(false);
 
   // Tester selection for email invites
   const [selectedTesterIds, setSelectedTesterIds] = useState<Set<string>>(new Set());
@@ -326,6 +338,11 @@ export default function SessionDetailPage({
 
   // Edit tester state
   const [editTesterDialog, setEditTesterDialog] = useState(false);
+
+  // Delete tester state
+  const [deleteTesterDialog, setDeleteTesterDialog] = useState(false);
+  const [testerToDelete, setTesterToDelete] = useState<Tester | null>(null);
+  const [deletingTester, setDeletingTester] = useState(false);
 
   // Notes filter state
   const [noteCategoryFilter, setNoteCategoryFilter] = useState<string>("all");
@@ -341,6 +358,13 @@ export default function SessionDetailPage({
   // Note-level AI Summary state
   const [noteAISummaryNote, setNoteAISummaryNote] = useState<NoteWithDetails | null>(null);
   const [viewSummaryNote, setViewSummaryNote] = useState<NoteWithDetails | null>(null);
+
+  // Delete note state
+  const [deleteNoteDialog, setDeleteNoteDialog] = useState(false);
+  const [noteToDelete, setNoteToDelete] = useState<NoteWithDetails | null>(null);
+  const [deletingNote, setDeletingNote] = useState(false);
+  const [deleteNoteReason, setDeleteNoteReason] = useState("");
+
   const [editingTester, setEditingTester] = useState<Tester | null>(null);
   const [editTesterFirstName, setEditTesterFirstName] = useState("");
   const [editTesterLastName, setEditTesterLastName] = useState("");
@@ -456,6 +480,52 @@ export default function SessionDetailPage({
       notes: session.notes.map((n) => n.id === updatedNote.id ? updatedNote : n),
     });
     setNoteAISummaryNote(updatedNote);
+  }
+
+  function openDeleteNoteDialog(note: NoteWithDetails) {
+    setNoteToDelete(note);
+    setDeleteNoteReason("");
+    setDeleteNoteDialog(true);
+  }
+
+  async function handleDeleteNote() {
+    if (!noteToDelete || !session || !deleteNoteReason.trim()) return;
+    setDeletingNote(true);
+    try {
+      const res = await fetch(
+        `/api/sessions/${id}/notes/${noteToDelete.id}?reason=${encodeURIComponent(deleteNoteReason.trim())}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setSession({
+          ...session,
+          notes: session.notes.filter((n) => n.id !== noteToDelete.id),
+        });
+        setDeleteNoteDialog(false);
+        setNoteToDelete(null);
+        setDeleteNoteReason("");
+        toast({
+          title: "Note deleted",
+          description: "The note has been removed and logged.",
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete note.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error deleting note:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete note.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingNote(false);
+    }
   }
 
   useEffect(() => {
@@ -601,6 +671,80 @@ export default function SessionDetailPage({
     });
     fetchSession();
   }
+
+  const defaultIssueOptions = [
+    "Performance lag",
+    "Spatialization issues",
+    "Network lag",
+    "Audio issues",
+    "Visual glitches",
+    "Input/Controls issues",
+  ];
+
+  function openEditSessionDialog() {
+    if (!session) return;
+    setEditSessionName(session.name);
+    setEditSessionDescription(session.description || "");
+    setEditSessionBuildVersion(session.build_version || "");
+    setEditSessionIssueOptions(session.issue_options || []);
+    setNewIssueOption("");
+    setEditSessionDialog(true);
+  }
+
+  function addEditIssueOption(option: string) {
+    const trimmed = option.trim();
+    if (trimmed && !editSessionIssueOptions.includes(trimmed)) {
+      setEditSessionIssueOptions([...editSessionIssueOptions, trimmed]);
+    }
+    setNewIssueOption("");
+  }
+
+  function removeEditIssueOption(option: string) {
+    setEditSessionIssueOptions(editSessionIssueOptions.filter(o => o !== option));
+  }
+
+  async function handleSaveSession() {
+    if (!session || !editSessionName.trim()) return;
+    setSavingSession(true);
+    try {
+      const res = await fetch(`/api/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editSessionName.trim(),
+          description: editSessionDescription.trim() || null,
+          build_version: editSessionBuildVersion.trim() || null,
+          issue_options: editSessionIssueOptions,
+        }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        setSession({ ...session, ...updated });
+        setEditSessionDialog(false);
+        toast({
+          title: "Session updated",
+          description: "Session details have been saved.",
+          variant: "success",
+        });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to update session.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error saving session:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update session.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingSession(false);
+    }
+  }
+
   async function handleEndSession(sendReport: boolean = false) {
     if (sendReport) {
       setSendingReportEmails(true);
@@ -744,11 +888,36 @@ export default function SessionDetailPage({
     setSelectedTeam(null);
     setSelectedMembers(new Set());
   }
-  async function handleDeleteTester(testerId: string) {
-    await fetch(`/api/sessions/${id}/testers?testerId=${testerId}`, {
-      method: "DELETE",
-    });
-    fetchSession();
+  function openDeleteTesterDialog(tester: Tester) {
+    setTesterToDelete(tester);
+    setDeleteTesterDialog(true);
+  }
+
+  async function handleDeleteTester() {
+    if (!testerToDelete) return;
+    setDeletingTester(true);
+    try {
+      await fetch(`/api/sessions/${id}/testers?testerId=${testerToDelete.id}`, {
+        method: "DELETE",
+      });
+      setDeleteTesterDialog(false);
+      setTesterToDelete(null);
+      fetchSession();
+      toast({
+        title: "Tester removed",
+        description: `${testerToDelete.first_name} ${testerToDelete.last_name} has been removed from the session.`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Error deleting tester:", error);
+      toast({
+        title: "Error",
+        description: "Failed to remove tester.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingTester(false);
+    }
   }
 
   function openEditTesterDialog(tester: Tester) {
@@ -858,11 +1027,36 @@ export default function SessionDetailPage({
       setSavingScene(false);
     }
   }
-  async function handleDeleteScene(sceneId: string) {
-    await fetch(`/api/sessions/${id}/scenes?sceneId=${sceneId}`, {
-      method: "DELETE",
-    });
-    fetchSession();
+  function openDeleteSceneDialog(scene: Scene) {
+    setSceneToDelete(scene);
+    setDeleteSceneDialog(true);
+  }
+
+  async function handleDeleteScene() {
+    if (!sceneToDelete) return;
+    setDeletingScene(true);
+    try {
+      await fetch(`/api/sessions/${id}/scenes?sceneId=${sceneToDelete.id}`, {
+        method: "DELETE",
+      });
+      setDeleteSceneDialog(false);
+      setSceneToDelete(null);
+      fetchSession();
+      toast({
+        title: "Scene deleted",
+        description: `"${sceneToDelete.name}" has been removed.`,
+        variant: "success",
+      });
+    } catch (error) {
+      console.error("Error deleting scene:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete scene.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeletingScene(false);
+    }
   }
   function copyInviteLink(token: string) {
     navigator.clipboard.writeText(`${window.location.origin}/join/${token}`);
@@ -1185,6 +1379,14 @@ export default function SessionDetailPage({
                 >
                   {getStatusLabel(session.status)}
                 </Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={openEditSessionDialog}
+                >
+                  <Edit2 className="w-4 h-4" />
+                </Button>
               </div>
               {session.build_version && (
                 <p className="text-sm text-muted-foreground font-mono">
@@ -1359,24 +1561,26 @@ export default function SessionDetailPage({
                         </div>
                         {session.status !== "completed" && (
                           <>
-                            {/* Desktop: Icons on hover */}
-                            <div className="hidden sm:flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100">
+                            {/* Desktop: Icon + text buttons */}
+                            <div className="hidden sm:flex items-center gap-1 shrink-0">
                               <Button
                                 variant="ghost"
-                                size="icon"
-                                className="text-muted-foreground hover:text-foreground"
+                                size="sm"
+                                className="text-muted-foreground hover:text-foreground h-8"
                                 onClick={() => openEditSceneDialog(s)}
                               >
                                 <Edit2 className="w-4 h-4" />
+                                Edit
                               </Button>
                               {session.scenes && session.scenes.length > 1 && (
                                 <Button
                                   variant="ghost"
-                                  size="icon"
-                                  className="text-muted-foreground hover:text-destructive"
-                                  onClick={() => handleDeleteScene(s.id)}
+                                  size="sm"
+                                  className="text-muted-foreground hover:text-destructive h-8"
+                                  onClick={() => openDeleteSceneDialog(s)}
                                 >
                                   <Trash2 className="w-4 h-4" />
+                                  Delete
                                 </Button>
                               )}
                             </div>
@@ -1398,7 +1602,7 @@ export default function SessionDetailPage({
                                 </DropdownMenuItem>
                                 {session.scenes && session.scenes.length > 1 && (
                                   <DropdownMenuItem
-                                    onClick={() => handleDeleteScene(s.id)}
+                                    onClick={() => openDeleteSceneDialog(s)}
                                     className="text-destructive focus:text-destructive"
                                   >
                                     <Trash2 className="w-4 h-4 mr-2" />
@@ -1624,7 +1828,7 @@ export default function SessionDetailPage({
                             variant="ghost"
                             size="icon"
                             className="text-muted-foreground hover:text-destructive sm:opacity-0 sm:group-hover:opacity-100"
-                            onClick={() => handleDeleteTester(t.id)}
+                            onClick={() => openDeleteTesterDialog(t)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -1819,21 +2023,28 @@ export default function SessionDetailPage({
                           <span className="text-xs text-muted-foreground">
                             {n.tester?.first_name} {n.tester?.last_name} • {formatDate(n.created_at)}
                           </span>
-                          {(n.edited_transcript || n.raw_transcript) && (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 -mr-2">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              {(n.edited_transcript || n.raw_transcript) && (
                                 <DropdownMenuItem onClick={() => setNoteAISummaryNote(n)}>
                                   <Sparkles className="w-4 h-4 mr-2" />
                                   AI Summary
                                 </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
+                              )}
+                              <DropdownMenuItem
+                                onClick={() => openDeleteNoteDialog(n)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </div>
                       <p className="text-sm">
@@ -2438,23 +2649,25 @@ export default function SessionDetailPage({
             </div>
             
             {/* Poll Questions Section */}
-            <div className="space-y-3 pt-2 border-t">
+            <div className="space-y-3 py-4 border-t border-border/40">
               <div className="flex items-center justify-between">
                 <Label>Poll Questions <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setNewScenePollQuestions([...newScenePollQuestions, {
-                    id: crypto.randomUUID(),
-                    question: "",
-                    question_type: "radio",
-                    options: ["", ""],
-                    required: false,
-                  }])}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Question
-                </Button>
+                {newScenePollQuestions.length === 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setNewScenePollQuestions([...newScenePollQuestions, {
+                      id: crypto.randomUUID(),
+                      question: "",
+                      question_type: "radio",
+                      options: ["", ""],
+                      required: false,
+                    }])}
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add Question
+                  </Button>
+                )}
               </div>
               
               {newScenePollQuestions.length === 0 && (
@@ -2464,7 +2677,7 @@ export default function SessionDetailPage({
               )}
               
               {newScenePollQuestions.map((q, qIndex) => (
-                <div key={q.id} className="p-4 rounded-lg border bg-secondary/30 space-y-3">
+                <div key={q.id} className="p-4 rounded-lg border border-border/40 bg-secondary/30 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 space-y-2">
                       <Input
@@ -2638,23 +2851,25 @@ export default function SessionDetailPage({
             </div>
             
             {/* Poll Questions Section */}
-            <div className="space-y-3 pt-2 border-t">
+            <div className="space-y-3 py-4 border-t border-border/40">
               <div className="flex items-center justify-between">
                 <Label>Poll Questions <span className="text-muted-foreground font-normal">(optional)</span></Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditScenePollQuestions([...editScenePollQuestions, {
-                    id: crypto.randomUUID(),
-                    question: "",
-                    question_type: "radio",
-                    options: ["", ""],
-                    required: false,
-                  }])}
-                >
-                  <Plus className="w-4 h-4 mr-1" /> Add Question
-                </Button>
+                {editScenePollQuestions.length === 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditScenePollQuestions([...editScenePollQuestions, {
+                      id: crypto.randomUUID(),
+                      question: "",
+                      question_type: "radio",
+                      options: ["", ""],
+                      required: false,
+                    }])}
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> Add Question
+                  </Button>
+                )}
               </div>
               
               {editScenePollQuestions.length === 0 && (
@@ -2664,7 +2879,7 @@ export default function SessionDetailPage({
               )}
               
               {editScenePollQuestions.map((q, qIndex) => (
-                <div key={q.id} className="p-4 rounded-lg border bg-secondary/30 space-y-3">
+                <div key={q.id} className="p-4 rounded-lg border border-border/40 bg-secondary/30 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 space-y-2">
                       <Input
@@ -2807,6 +3022,126 @@ export default function SessionDetailPage({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Scene Confirmation Dialog */}
+      <Dialog open={deleteSceneDialog} onOpenChange={setDeleteSceneDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Scene?</DialogTitle>
+            <DialogDescription className="space-y-1">
+              <span className="block">Are you sure you want to delete &quot;{sceneToDelete?.name}&quot;?</span>
+              <span className="block">This action cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm">
+              <p className="text-destructive font-medium flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Warning
+              </p>
+              <p className="text-muted-foreground mt-1">
+                All notes associated with this scene will also be deleted.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteSceneDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteScene}
+              disabled={deletingScene}
+            >
+              {deletingScene && <Loader2 className="w-4 h-4 animate-spin" />}
+              Delete Scene
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Tester Confirmation Dialog */}
+      <Dialog open={deleteTesterDialog} onOpenChange={setDeleteTesterDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Remove Tester?</DialogTitle>
+            <DialogDescription className="space-y-1">
+              <span className="block">Are you sure you want to remove {testerToDelete?.first_name} {testerToDelete?.last_name}?</span>
+              <span className="block">This action cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3 text-sm">
+              <p className="text-destructive font-medium flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Warning
+              </p>
+              <p className="text-muted-foreground mt-1">
+                All notes recorded by this tester will also be deleted.
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteTesterDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteTester}
+              disabled={deletingTester}
+            >
+              {deletingTester && <Loader2 className="w-4 h-4 animate-spin" />}
+              Remove Tester
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Note Confirmation Dialog */}
+      <Dialog open={deleteNoteDialog} onOpenChange={setDeleteNoteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Note?</DialogTitle>
+            <DialogDescription className="space-y-1">
+              <span className="block">Are you sure you want to delete this note?</span>
+              <span className="block">This action cannot be undone.</span>
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {noteToDelete && (noteToDelete.edited_transcript || noteToDelete.raw_transcript) && (
+              <div className="rounded-lg bg-secondary/50 p-3 text-sm">
+                <p className="text-muted-foreground line-clamp-3">
+                  {noteToDelete.edited_transcript || noteToDelete.raw_transcript}
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="deleteNoteReason">Reason for deletion *</Label>
+              <Textarea
+                id="deleteNoteReason"
+                value={deleteNoteReason}
+                onChange={(e) => setDeleteNoteReason(e.target.value)}
+                placeholder="e.g., Duplicate note, Test recording, Accidental submission..."
+                className="min-h-[80px] resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteNoteDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteNote}
+              disabled={deletingNote || !deleteNoteReason.trim()}
+            >
+              {deletingNote && <Loader2 className="w-4 h-4 animate-spin" />}
+              Delete Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={restartDialog} onOpenChange={setRestartDialog}>
         <DialogContent>
           <DialogHeader>
@@ -3178,6 +3513,151 @@ export default function SessionDetailPage({
             >
               {addingToTeam && <Loader2 className="w-4 h-4 animate-spin" />}
               Add to Team
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Session Dialog */}
+      <Dialog open={editSessionDialog} onOpenChange={setEditSessionDialog}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Session</DialogTitle>
+            <DialogDescription>
+              Update the session details
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="editSessionName">Session Name *</Label>
+              <Input
+                id="editSessionName"
+                value={editSessionName}
+                onChange={(e) => setEditSessionName(e.target.value)}
+                placeholder="e.g., Sprint 24"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editSessionDescription">Description</Label>
+              <Textarea
+                id="editSessionDescription"
+                value={editSessionDescription}
+                onChange={(e) => setEditSessionDescription(e.target.value)}
+                placeholder="Brief description of what's being tested..."
+                className="min-h-[80px] resize-none"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editSessionBuildVersion">Build / Version</Label>
+              <Input
+                id="editSessionBuildVersion"
+                value={editSessionBuildVersion}
+                onChange={(e) => setEditSessionBuildVersion(e.target.value)}
+                placeholder="e.g., v2.1.0"
+              />
+            </div>
+            <div className="space-y-3">
+              <Label className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4" />
+                Issue Checkboxes
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Quick checkboxes for common issues testers can report
+              </p>
+              {editSessionIssueOptions.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {editSessionIssueOptions.map((option) => (
+                    <div
+                      key={option}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/50 text-sm"
+                    >
+                      <span>{option}</span>
+                      <button
+                        type="button"
+                        onClick={() => removeEditIssueOption(option)}
+                        className="hover:text-destructive"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  value={newIssueOption}
+                  onChange={(e) => setNewIssueOption(e.target.value)}
+                  placeholder="Add custom issue option..."
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addEditIssueOption(newIssueOption);
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => addEditIssueOption(newIssueOption)}
+                  disabled={!newIssueOption.trim()}
+                >
+                  Add
+                </Button>
+              </div>
+              {editSessionIssueOptions.length === 0 && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Quick add common issues:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {defaultIssueOptions.map((option) => (
+                      <Button
+                        key={option}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => addEditIssueOption(option)}
+                        className="text-xs"
+                      >
+                        <Plus className="w-3 h-3 mr-1" />
+                        {option}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {editSessionIssueOptions.length > 0 && defaultIssueOptions.some(option => !editSessionIssueOptions.includes(option)) && (
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Add more:</p>
+                  <div className="flex flex-wrap gap-2">
+                    {defaultIssueOptions
+                      .filter((option) => !editSessionIssueOptions.includes(option))
+                      .map((option) => (
+                        <Button
+                          key={option}
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => addEditIssueOption(option)}
+                          className="text-xs h-7"
+                        >
+                          <Plus className="w-3 h-3 mr-1" />
+                          {option}
+                        </Button>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setEditSessionDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSession}
+              disabled={savingSession || !editSessionName.trim()}
+            >
+              {savingSession && <Loader2 className="w-4 h-4 animate-spin" />}
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
