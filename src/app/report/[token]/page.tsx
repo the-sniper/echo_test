@@ -15,6 +15,142 @@ import {
 } from "@/components/ui/select";
 import { formatDate, getCategoryLabel } from "@/lib/utils";
 import type { SessionWithDetails, NoteWithDetails, NoteCategory, Tester, PollQuestion, PollResponse, Scene } from "@/types";
+import React from "react";
+
+// Component to render the session AI summary with proper formatting
+function SessionSummaryContent({ summary }: { summary: string }) {
+  const lines = summary.split("\n");
+  const elements: React.ReactNode[] = [];
+
+  lines.forEach((line, index) => {
+    const trimmed = line.trim();
+    
+    // Warning headers
+    if (trimmed.startsWith("**") && (trimmed.includes("⚠️") || trimmed.toLowerCase().includes("requiring review"))) {
+      const headerMatch = trimmed.match(/^\*\*(.+?):\*\*\s*(.*)?$/) || trimmed.match(/^\*\*(.+?)\*\*\s*(.*)?$/);
+      if (headerMatch) {
+        elements.push(
+          <div 
+            key={index} 
+            className="rounded-lg bg-yellow-500/10 border border-yellow-500/20"
+            style={{ padding: "10px 15px", margin: "30px 0 10px" }}
+          >
+            <h4 className="font-semibold text-yellow-600 dark:text-yellow-400 m-0">{headerMatch[1].replace(/:$/, "")}:</h4>
+            {headerMatch[2] && <p className="text-sm text-muted-foreground m-0">{headerMatch[2]}</p>}
+          </div>
+        );
+        return;
+      }
+    }
+    
+    // Bold headers like **Summary Overview:**
+    if (trimmed.startsWith("**") && trimmed.includes(":**")) {
+      const headerMatch = trimmed.match(/^\*\*(.+?):\*\*\s*(.*)?$/);
+      if (headerMatch) {
+        elements.push(
+          <div key={index} className="mt-6 first:mt-0">
+            <h4 className="font-semibold text-foreground text-base mb-2">{headerMatch[1]}:</h4>
+            {headerMatch[2] && <p className="text-sm text-muted-foreground">{headerMatch[2]}</p>}
+          </div>
+        );
+        return;
+      }
+    }
+    
+    // Bullet points with category tags like - **[Bug]** - Scene:
+    if (trimmed.startsWith("- **[")) {
+      const match = trimmed.match(/^-\s*\*\*\[(\w+)\]\*\*\s*(.+)$/);
+      if (match) {
+        const category = match[1];
+        const content = match[2];
+        const categoryColor: Record<string, string> = {
+          BUG: "bg-red-500/20 text-red-600 dark:text-red-400",
+          FEATURE: "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+          UX: "bg-blue-500/20 text-blue-600 dark:text-blue-400",
+          PERFORMANCE: "bg-orange-500/20 text-orange-600 dark:text-orange-400",
+          OTHER: "bg-gray-500/20 text-gray-600 dark:text-gray-400",
+        };
+        const colorClass = categoryColor[category.toUpperCase()] || "bg-gray-500/20 text-gray-600";
+        
+        elements.push(
+          <div key={index} className="flex gap-3 mt-4 first:mt-0 p-3 rounded-lg bg-secondary/30">
+            <span className={`shrink-0 px-2.5 py-1 rounded text-xs font-medium ${colorClass}`}>
+              {category}
+            </span>
+            <span 
+              className="text-sm flex-1"
+              dangerouslySetInnerHTML={{ 
+                __html: content.replace(/\*\*(.+?)\*\*/g, '<strong class="font-semibold">$1</strong>')
+              }}
+            />
+          </div>
+        );
+        return;
+      }
+    }
+    
+    // Reported by line
+    if (trimmed.startsWith("- *Reported by:") || trimmed.startsWith("*Reported by:")) {
+      const reporter = trimmed.replace(/^-?\s*\*Reported by:\s*/, "").replace(/\*$/, "");
+      elements.push(
+        <p key={index} className="text-xs text-muted-foreground ml-16 -mt-2 mb-3 italic">
+          Reported by: {reporter}
+        </p>
+      );
+      return;
+    }
+    
+    // Issue line
+    if (trimmed.startsWith("- *Issue:") || trimmed.startsWith("*Issue:")) {
+      const issue = trimmed.replace(/^-?\s*\*Issue:\s*/, "").replace(/\*$/, "");
+      elements.push(
+        <p key={index} className="text-xs text-yellow-600 dark:text-yellow-400 ml-4 -mt-1 mb-2 italic">
+          Issue: {issue}
+        </p>
+      );
+      return;
+    }
+    
+    // Regular bullet points
+    if (trimmed.startsWith("- ") || trimmed.startsWith("• ")) {
+      const bulletContent = trimmed.slice(2);
+      const formattedContent = bulletContent.replace(
+        /\*\*(.+?)\*\*/g,
+        '<strong class="font-semibold">$1</strong>'
+      );
+      elements.push(
+        <div key={index} className="flex gap-2 ml-2 mt-2">
+          <span className="text-primary shrink-0">•</span>
+          <span 
+            className="text-sm text-muted-foreground flex-1"
+            dangerouslySetInnerHTML={{ __html: formattedContent }}
+          />
+        </div>
+      );
+      return;
+    }
+    
+    // Empty lines
+    if (trimmed === "") {
+      return;
+    }
+    
+    // Regular text
+    const formattedText = trimmed.replace(
+      /\*\*(.+?)\*\*/g,
+      '<strong class="font-semibold">$1</strong>'
+    );
+    elements.push(
+      <p 
+        key={index} 
+        className="text-sm text-muted-foreground mt-2"
+        dangerouslySetInnerHTML={{ __html: formattedText }}
+      />
+    );
+  });
+
+  return <div className="space-y-1">{elements}</div>;
+}
 
 export default function PublicReportPage({ params }: { params: { token: string } }) {
   const { token } = params;
@@ -180,15 +316,15 @@ export default function PublicReportPage({ params }: { params: { token: string }
             <Image
               src="/logo.svg"
               alt="AirLog"
-              width={32}
-              height={32}
+              width={80}
+              height={80}
               className="dark:hidden"
             />
             <Image
               src="/logo-dark.svg"
               alt="AirLog"
-              width={32}
-              height={32}
+              width={80}
+              height={80}
               className="hidden dark:block"
             />
             <span className="font-semibold text-lg">Session Report</span>
@@ -231,7 +367,7 @@ export default function PublicReportPage({ params }: { params: { token: string }
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="p-4 rounded-lg bg-secondary/30">
                 <div className="text-3xl font-bold">{stats?.total || 0}</div>
                 <div className="text-sm text-muted-foreground">Total Notes</div>
@@ -249,6 +385,12 @@ export default function PublicReportPage({ params }: { params: { token: string }
                   {stats?.categoryBreakdown.bug || 0}
                 </div>
                 <div className="text-sm text-muted-foreground">Bugs Found</div>
+              </div>
+              <div className="p-4 rounded-lg bg-secondary/30">
+                <div className="text-3xl font-bold text-amber-500">
+                  {session.testers?.reduce((total: number, tester: Tester) => total + (tester.reported_issues?.length || 0), 0) || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Stability Issues</div>
               </div>
             </div>
           </CardContent>
@@ -413,9 +555,9 @@ export default function PublicReportPage({ params }: { params: { token: string }
                   return (
                     <div key={question.id} className="space-y-3">
                       <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-xs">{question.sceneName}</Badge>
-                          {question.required && <Badge variant="outline" className="text-xs">Required</Badge>}
+                        <div className="flex items-center gap-1.5 mb-1">
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{question.sceneName}</Badge>
+                          {question.required && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">Required</Badge>}
                         </div>
                         <p className="font-medium">{question.question}</p>
                         <p className="text-xs text-muted-foreground">
@@ -462,11 +604,7 @@ export default function PublicReportPage({ params }: { params: { token: string }
               <CardTitle>AI Summary</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="prose prose-sm dark:prose-invert max-w-none">
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">
-                  {session.ai_summary}
-                </p>
-              </div>
+              <SessionSummaryContent summary={session.ai_summary} />
             </CardContent>
           </Card>
         )}

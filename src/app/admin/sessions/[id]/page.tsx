@@ -1434,7 +1434,7 @@ export default function SessionDetailPage({
         </p>
       )}
     </div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="text-2xl font-bold">
@@ -1457,6 +1457,15 @@ export default function SessionDetailPage({
               {session.notes?.length || 0}
             </div>
             <p className="text-sm text-muted-foreground">Notes</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-2xl font-bold">
+              {session.testers?.reduce((total: number, tester: Tester) => 
+                total + (tester.reported_issues?.length || 0), 0) || 0}
+            </div>
+            <p className="text-sm text-muted-foreground">Stability Issues</p>
           </CardContent>
         </Card>
         <Card>

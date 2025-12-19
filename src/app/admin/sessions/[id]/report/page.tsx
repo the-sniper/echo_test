@@ -221,11 +221,12 @@ export default function ReportPage({ params }: { params: { id: string } }) {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5" />Summary</CardTitle><CardDescription>Completed on {session.ended_at ? formatDate(session.ended_at) : "N/A"}</CardDescription></CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{stats?.total || 0}</div><div className="text-sm text-muted-foreground">Total Notes</div></div>
             <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.testers?.length || 0}</div><div className="text-sm text-muted-foreground">Testers</div></div>
             <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.scenes?.length || 0}</div><div className="text-sm text-muted-foreground">Scenes</div></div>
             <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold text-red-500">{stats?.categoryBreakdown.bug || 0}</div><div className="text-sm text-muted-foreground">Bugs Found</div></div>
+            <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold text-amber-500">{session.testers?.reduce((total: number, tester: Tester) => total + (tester.reported_issues?.length || 0), 0) || 0}</div><div className="text-sm text-muted-foreground">Stability Issues</div></div>
           </div>
         </CardContent>
       </Card>
@@ -373,9 +374,9 @@ export default function ReportPage({ params }: { params: { id: string } }) {
                 return (
                   <div key={question.id} className="space-y-3">
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="secondary" className="text-xs">{question.sceneName}</Badge>
-                        {question.required && <Badge variant="outline" className="text-xs">Required</Badge>}
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{question.sceneName}</Badge>
+                        {question.required && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">Required</Badge>}
                       </div>
                       <p className="font-medium">{question.question}</p>
                       <p className="text-xs text-muted-foreground">
