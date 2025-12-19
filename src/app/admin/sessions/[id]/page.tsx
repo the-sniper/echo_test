@@ -27,6 +27,9 @@ import {
   X,
   MoreVertical,
   Sparkles,
+  UserPlus2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +64,7 @@ import { formatDate, getStatusLabel, getCategoryLabel } from "@/lib/utils";
 import { AISummaryDialog } from "@/components/ai-summary-dialog";
 import { NoteAISummaryDialog } from "@/components/note-ai-summary-dialog";
 import { AISummaryViewDialog } from "@/components/ai-summary-view-dialog";
+import { Tooltip } from "@/components/ui/tooltip";
 import type {
   SessionWithDetails,
   Tester,
@@ -313,6 +317,9 @@ export default function SessionDetailPage({
   // AI Summary dialog state
   const [aiSummaryDialog, setAISummaryDialog] = useState(false);
   
+  // Toggle notes visibility during active session (hidden by default)
+  const [showNotesWhileActive, setShowNotesWhileActive] = useState(false);
+  
   // Note-level AI Summary state
   const [noteAISummaryNote, setNoteAISummaryNote] = useState<NoteWithDetails | null>(null);
   const [viewSummaryNote, setViewSummaryNote] = useState<NoteWithDetails | null>(null);
@@ -321,6 +328,13 @@ export default function SessionDetailPage({
   const [editTesterLastName, setEditTesterLastName] = useState("");
   const [editTesterEmail, setEditTesterEmail] = useState("");
   const [savingTester, setSavingTester] = useState(false);
+
+  // Add to Team dialog state
+  const [addToTeamDialog, setAddToTeamDialog] = useState(false);
+  const [addToTeamLoading, setAddToTeamLoading] = useState(false);
+  const [teamMemberships, setTeamMemberships] = useState<Record<string, Set<string>>>({}); // teamId -> Set of "firstName_lastName"
+  const [selectedTeamForAdd, setSelectedTeamForAdd] = useState<string | null>(null);
+  const [addingToTeam, setAddingToTeam] = useState(false);
 
   // Calculate elapsed time for active sessions
   useEffect(() => {
@@ -728,6 +742,8 @@ export default function SessionDetailPage({
         const result = await res.json();
         // Clear selection after successful send
         setSelectedTesterIds(new Set());
+        // Refresh session to get updated invite_sent_at
+        fetchSession();
         toast({
           title: "Invites sent!",
           description: `Successfully sent ${result.sent} invite${result.sent !== 1 ? 's' : ''}.`,
@@ -753,6 +769,117 @@ export default function SessionDetailPage({
       setTestersWithEmail([]);
       setTestersWithoutEmail([]);
       setSendingInvites(false);
+    }
+  }
+
+  // Open Add to Team dialog
+  async function openAddToTeamDialog() {
+    if (selectedTesterIds.size === 0) return;
+    setAddToTeamDialog(true);
+    setAddToTeamLoading(true);
+    setSelectedTeamForAdd(null);
+
+    try {
+      // Fetch membership info for all teams
+      const memberships: Record<string, Set<string>> = {};
+      await Promise.all(
+        teams.map(async (team) => {
+          const res = await fetch(`/api/teams/${team.id}/members`);
+          if (res.ok) {
+            const members = await res.json();
+            memberships[team.id] = new Set(
+              members.map((m: { first_name: string; last_name: string }) =>
+                `${m.first_name.toLowerCase()}_${m.last_name.toLowerCase()}`
+              )
+            );
+          }
+        })
+      );
+      setTeamMemberships(memberships);
+    } catch (error) {
+      console.error("Error fetching team memberships:", error);
+    } finally {
+      setAddToTeamLoading(false);
+    }
+  }
+
+  // Check if a tester is already a member of a team
+  function isTesterInTeam(tester: Tester, teamId: string): boolean {
+    const members = teamMemberships[teamId];
+    if (!members) return false;
+    return members.has(`${tester.first_name.toLowerCase()}_${tester.last_name.toLowerCase()}`);
+  }
+
+  // Check if all selected testers are already in a team
+  function areAllSelectedTestersInTeam(teamId: string): boolean {
+    if (!session?.testers || selectedTesterIds.size === 0) return false;
+    const selectedTesters = session.testers.filter((t) => selectedTesterIds.has(t.id));
+    return selectedTesters.every((t) => isTesterInTeam(t, teamId));
+  }
+
+  // Get count of selected testers not yet in a team
+  function getTestersToAddCount(teamId: string): number {
+    if (!session?.testers || selectedTesterIds.size === 0) return 0;
+    const selectedTesters = session.testers.filter((t) => selectedTesterIds.has(t.id));
+    return selectedTesters.filter((t) => !isTesterInTeam(t, teamId)).length;
+  }
+
+  // Add selected testers to a team
+  async function handleAddToTeam() {
+    if (!selectedTeamForAdd || !session?.testers || selectedTesterIds.size === 0) return;
+    
+    const selectedTesters = session.testers.filter((t) => selectedTesterIds.has(t.id));
+    const testersToAdd = selectedTesters.filter((t) => !isTesterInTeam(t, selectedTeamForAdd));
+
+    if (testersToAdd.length === 0) {
+      toast({
+        title: "No testers to add",
+        description: "All selected testers are already members of this team.",
+        variant: "default",
+      });
+      return;
+    }
+
+    setAddingToTeam(true);
+    try {
+      const res = await fetch(`/api/teams/${selectedTeamForAdd}/members`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          testers: testersToAdd.map((t) => ({
+            first_name: t.first_name,
+            last_name: t.last_name,
+            email: t.email,
+          })),
+        }),
+      });
+
+      if (res.ok) {
+        const result = await res.json();
+        toast({
+          title: "Added to team!",
+          description: `Successfully added ${result.added || testersToAdd.length} tester${(result.added || testersToAdd.length) !== 1 ? "s" : ""} to the team.`,
+          variant: "success",
+        });
+        setAddToTeamDialog(false);
+        setSelectedTesterIds(new Set());
+        setSelectedTeamForAdd(null);
+      } else {
+        toast({
+          title: "Failed to add to team",
+          description: "Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error adding testers to team:", error);
+      toast({
+        title: "Failed to add to team",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setAddingToTeam(false);
     }
   }
 
@@ -881,11 +1008,29 @@ export default function SessionDetailPage({
             <FileText className="w-4 h-4" />
             <span>Notes</span>
           </TabsTrigger>
-          {session.ai_summary && (
+          {session.ai_summary ? (
             <TabsTrigger value="summary" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
               <Sparkles className="w-4 h-4" />
               <span>Summary</span>
             </TabsTrigger>
+          ) : (
+            <Tooltip 
+              content={
+                session.status !== "completed" 
+                  ? "Complete the session first to generate a summary" 
+                  : "Generate a summary from the Notes tab"
+              }
+              side="bottom"
+            >
+              <TabsTrigger 
+                value="summary" 
+                disabled 
+                className="gap-1.5 sm:gap-2 flex-1 sm:flex-none opacity-50 cursor-not-allowed"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Summary</span>
+              </TabsTrigger>
+            </Tooltip>
           )}
         </TabsList>
         <TabsContent value="scenes" className="mt-4">
@@ -1009,22 +1154,36 @@ export default function SessionDetailPage({
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {session.status !== "completed" && selectedTesterIds.size > 0 && (
-                    <Button 
-                      variant="outline" 
-                      onClick={handleSendEmailInvites}
-                      disabled={sendingInvites}
-                      size="sm"
-                      className="flex-1 sm:flex-none"
-                    >
-                      {sendingInvites ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Mail className="w-4 h-4" />
-                      )}
-                      <span className="hidden sm:inline">Send Email Invite</span>
-                      <span className="sm:hidden">Email</span>
-                      <span>({selectedTesterIds.size})</span>
-                    </Button>
+                    <>
+                      <Button 
+                        variant="outline" 
+                        onClick={openAddToTeamDialog}
+                        disabled={teams.length === 0}
+                        size="sm"
+                        className="flex-1 sm:flex-none"
+                      >
+                        <UserPlus2 className="w-4 h-4" />
+                        <span className="hidden sm:inline">Add to Team</span>
+                        <span className="sm:hidden">Team</span>
+                        <span>({selectedTesterIds.size})</span>
+                      </Button>
+                      <Button 
+                        variant="outline" 
+                        onClick={handleSendEmailInvites}
+                        disabled={sendingInvites}
+                        size="sm"
+                        className="flex-1 sm:flex-none"
+                      >
+                        {sendingInvites ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <Mail className="w-4 h-4" />
+                        )}
+                        <span className="hidden sm:inline">Send Email Invite</span>
+                        <span className="sm:hidden">Email</span>
+                        <span>({selectedTesterIds.size})</span>
+                      </Button>
+                    </>
                   )}
                   {session.status !== "completed" && (
                     <Button onClick={() => setAddTesterDialog(true)} size="sm" className="flex-1 sm:flex-none">
@@ -1085,7 +1244,15 @@ export default function SessionDetailPage({
                           </button>
                         )}
                         <div className="min-w-0">
-                          <p className="font-medium">{t.first_name} {t.last_name}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium">{t.first_name} {t.last_name}</p>
+                            {t.invite_sent_at && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
+                                <Mail className="w-3 h-3" />
+                                Invited
+                              </span>
+                            )}
+                          </div>
                           {t.email && (
                             <p className="text-xs text-muted-foreground truncate">{t.email}</p>
                           )}
@@ -1146,24 +1313,61 @@ export default function SessionDetailPage({
                       ? hasActiveNoteFilters 
                         ? `${filteredNotes.length} of ${session.notes?.length || 0} notes`
                         : `${session.notes?.length || 0} notes`
-                      : "Notes visible after session ends"}
+                      : session.status === "active" && showNotesWhileActive
+                      ? `${session.notes?.length || 0} notes (live view)`
+                      : "Notes hidden by default during active sessions"}
                   </CardDescription>
                 </div>
-                {session.status === "completed" && session.notes && session.notes.length > 0 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setAISummaryDialog(true)}
-                    className="gap-2"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    <span className="hidden sm:inline">Summarize Session</span>
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {session.status === "active" && (
+                    <>
+                      <Button
+                        variant={showNotesWhileActive ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowNotesWhileActive(!showNotesWhileActive)}
+                        className="gap-2"
+                      >
+                        {showNotesWhileActive ? (
+                          <>
+                            <EyeOff className="w-4 h-4" />
+                            <span className="hidden sm:inline">Hide Notes</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-4 h-4" />
+                            <span className="hidden sm:inline">Show Notes</span>
+                          </>
+                        )}
+                      </Button>
+                      {showNotesWhileActive && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={fetchSession}
+                          className="gap-2"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          <span className="hidden sm:inline">Refresh</span>
+                        </Button>
+                      )}
+                    </>
+                  )}
+                  {session.status === "completed" && session.notes && session.notes.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAISummaryDialog(true)}
+                      className="gap-2"
+                    >
+                      <Sparkles className="w-4 h-4" />
+                      <span className="hidden sm:inline">Summarize Session</span>
+                    </Button>
+                  )}
+                </div>
               </div>
               
-              {/* Filters - only show when completed and has notes */}
-              {session.status === "completed" && session.notes && session.notes.length > 0 && (
+              {/* Filters - show when notes are visible and has notes */}
+              {(session.status === "completed" || (session.status === "active" && showNotesWhileActive)) && session.notes && session.notes.length > 0 && (
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:gap-3 pt-2 border-t border-border">
                   <div className="flex items-center gap-2">
                     <Filter className="w-4 h-4 text-muted-foreground" />
@@ -1226,10 +1430,10 @@ export default function SessionDetailPage({
               )}
             </CardHeader>
             <CardContent>
-              {session.status !== "completed" ? (
+              {session.status !== "completed" && !(session.status === "active" && showNotesWhileActive) ? (
                 <div className="text-center py-8 text-muted-foreground">
                   <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Notes hidden during sessions</p>
+                  <p>{session.status === "active" ? "Click \"Show Notes\" to view notes during this session" : "Notes hidden during draft sessions"}</p>
                 </div>
               ) : session.notes?.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
@@ -1840,6 +2044,94 @@ export default function SessionDetailPage({
           onOpenChange={(open) => !open && setViewSummaryNote(null)}
         />
       )}
+
+      {/* Add to Team Dialog */}
+      <Dialog open={addToTeamDialog} onOpenChange={setAddToTeamDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add to Team</DialogTitle>
+            <DialogDescription>
+              Add {selectedTesterIds.size} selected tester{selectedTesterIds.size !== 1 ? "s" : ""} to an existing team
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {addToTeamLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : teams.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <UsersRound className="w-10 h-10 mx-auto mb-3 opacity-50" />
+                <p className="text-sm mb-2">No teams available</p>
+                <Link href="/admin/teams">
+                  <Button size="sm" variant="outline">
+                    <Plus className="w-4 h-4" />
+                    Create Team
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>Select Team</Label>
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {teams.map((team) => {
+                    const allInTeam = areAllSelectedTestersInTeam(team.id);
+                    const toAddCount = getTestersToAddCount(team.id);
+                    
+                    return (
+                      <button
+                        key={team.id}
+                        type="button"
+                        disabled={allInTeam}
+                        className={`w-full p-3 rounded-lg border text-left transition-colors ${
+                          allInTeam
+                            ? "opacity-50 cursor-not-allowed bg-secondary/30 border-border"
+                            : selectedTeamForAdd === team.id
+                            ? "border-primary bg-primary/10"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                        onClick={() => !allInTeam && setSelectedTeamForAdd(team.id)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">{team.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {team.members?.[0]?.count || 0} members
+                            </p>
+                          </div>
+                          {allInTeam ? (
+                            <span className="text-xs bg-secondary text-muted-foreground px-2 py-1 rounded">
+                              All added
+                            </span>
+                          ) : toAddCount < selectedTesterIds.size ? (
+                            <span className="text-xs bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 px-2 py-1 rounded">
+                              {toAddCount} new
+                            </span>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setAddToTeamDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleAddToTeam}
+              disabled={addingToTeam || !selectedTeamForAdd || addToTeamLoading}
+            >
+              {addingToTeam && <Loader2 className="w-4 h-4 animate-spin" />}
+              Add to Team
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
