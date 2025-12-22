@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import type React from "react";
 import Link from "next/link";
 import {
@@ -20,6 +20,8 @@ import {
   UserPlus,
   UsersRound,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CheckSquare,
   Square as SquareIcon,
   Clock,
@@ -491,6 +493,8 @@ export default function SessionDetailPage({
   const [restartDialog, setRestartDialog] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [elapsedTime, setElapsedTime] = useState(0);
+  const tabsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tabScrollShadows, setTabScrollShadows] = useState({ left: false, right: false });
 
   // Edit session state
   const [editSessionDialog, setEditSessionDialog] = useState(false);
@@ -573,6 +577,49 @@ export default function SessionDetailPage({
   const [skipReportEmailDialog, setSkipReportEmailDialog] = useState(false);
   const [reportTestersWithoutEmail, setReportTestersWithoutEmail] = useState<Tester[]>([]);
   const [reportTestersWithEmail, setReportTestersWithEmail] = useState<Tester[]>([]);
+
+  const updateTabScrollShadows = useCallback(() => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    setTabScrollShadows({
+      left: el.scrollLeft > 4,
+      right: el.scrollLeft + el.clientWidth < el.scrollWidth - 4,
+    });
+  }, []);
+
+  function scrollTabs(direction: "left" | "right") {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    const scrollAmount = el.clientWidth * 0.6 || 120;
+    el.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  }
+
+  useEffect(() => {
+    const el = tabsScrollRef.current;
+    updateTabScrollShadows();
+    if (!el) return;
+
+    const handleResize = () => updateTabScrollShadows();
+    el.addEventListener("scroll", updateTabScrollShadows);
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      el.removeEventListener("scroll", updateTabScrollShadows);
+      window.removeEventListener("resize", handleResize);
+    };
+  }, [updateTabScrollShadows]);
+
+  useEffect(() => {
+    updateTabScrollShadows();
+  }, [
+    session?.ai_summary,
+    session?.issue_options?.length,
+    session?.scenes?.length,
+    updateTabScrollShadows,
+  ]);
 
   // Calculate elapsed time for active sessions
   useEffect(() => {
@@ -1800,57 +1847,92 @@ export default function SessionDetailPage({
           </CardContent>
         </Card>
       </div>
-      <Tabs defaultValue="scenes">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="scenes" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
-            <Layout className="w-4 h-4" />
-            <span>Scenes</span>
-          </TabsTrigger>
-          <TabsTrigger value="testers" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
-            <Users className="w-4 h-4" />
-            <span>Testers</span>
-          </TabsTrigger>
-          <TabsTrigger value="notes" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
-            <FileText className="w-4 h-4" />
-            <span>Notes</span>
-          </TabsTrigger>
-          {session.issue_options && session.issue_options.length > 0 && (
-            <TabsTrigger value="stability" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
-              <Activity className="w-4 h-4" />
-              <span>Stability</span>
-            </TabsTrigger>
-          )}
-          {session.scenes?.some((s: Scene) => s.poll_questions && s.poll_questions.length > 0) && (
-            <TabsTrigger value="poll" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
-              <BarChart3 className="w-4 h-4" />
-              <span>Poll</span>
-            </TabsTrigger>
-          )}
-          {session.ai_summary ? (
-            <TabsTrigger value="summary" className="gap-1.5 sm:gap-2 flex-1 sm:flex-none">
-              <Sparkles className="w-4 h-4" />
-              <span>Summary</span>
-            </TabsTrigger>
-          ) : (
-            <Tooltip 
-              content={
-                session.status !== "completed" 
-                  ? "Complete the session first to generate a summary" 
-                  : "Generate a summary from the Notes tab"
-              }
-              side="bottom"
-            >
-              <TabsTrigger 
-                value="summary" 
-                disabled 
-                className="gap-1.5 sm:gap-2 flex-1 sm:flex-none opacity-50 cursor-not-allowed"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Summary</span>
+      <Tabs defaultValue="scenes" className="relative">
+        <div className="relative -mx-4 sm:mx-0">
+          <div
+            className={`pointer-events-none absolute left-0 top-0 h-10 w-8 bg-gradient-to-r from-background to-transparent transition-opacity sm:hidden ${tabScrollShadows.left ? "opacity-100" : "opacity-0"}`}
+          />
+          <div
+            className={`pointer-events-none absolute right-0 top-0 h-10 w-8 bg-gradient-to-l from-background to-transparent transition-opacity sm:hidden ${tabScrollShadows.right ? "opacity-100" : "opacity-0"}`}
+          />
+          <div
+            className="overflow-x-auto no-scrollbar px-4 sm:px-0"
+            ref={tabsScrollRef}
+          >
+            <TabsList className="w-max min-w-full sm:min-w-0 gap-1.5 sm:gap-2">
+              <TabsTrigger value="scenes" className="gap-1.5 sm:gap-2 flex-none">
+                <Layout className="w-4 h-4" />
+                <span>Scenes</span>
               </TabsTrigger>
-            </Tooltip>
-          )}
-        </TabsList>
+              <TabsTrigger value="testers" className="gap-1.5 sm:gap-2 flex-none">
+                <Users className="w-4 h-4" />
+                <span>Testers</span>
+              </TabsTrigger>
+              <TabsTrigger value="notes" className="gap-1.5 sm:gap-2 flex-none">
+                <FileText className="w-4 h-4" />
+                <span>Notes</span>
+              </TabsTrigger>
+              {session.issue_options && session.issue_options.length > 0 && (
+                <TabsTrigger value="stability" className="gap-1.5 sm:gap-2 flex-none">
+                  <Activity className="w-4 h-4" />
+                  <span>Stability</span>
+                </TabsTrigger>
+              )}
+              {session.scenes?.some((s: Scene) => s.poll_questions && s.poll_questions.length > 0) && (
+                <TabsTrigger value="poll" className="gap-1.5 sm:gap-2 flex-none">
+                  <BarChart3 className="w-4 h-4" />
+                  <span>Poll</span>
+                </TabsTrigger>
+              )}
+              {session.ai_summary ? (
+                <TabsTrigger value="summary" className="gap-1.5 sm:gap-2 flex-none">
+                  <Sparkles className="w-4 h-4" />
+                  <span>Summary</span>
+                </TabsTrigger>
+              ) : (
+                <Tooltip 
+                  content={
+                    session.status !== "completed" 
+                      ? "Complete the session first to generate a summary" 
+                      : "Generate a summary from the Notes tab"
+                  }
+                  side="bottom"
+                >
+                  <TabsTrigger 
+                    value="summary" 
+                    disabled 
+                    className="gap-1.5 sm:gap-2 flex-none opacity-50 cursor-not-allowed"
+                  >
+                    <Sparkles className="w-4 h-4" />
+                    <span>Summary</span>
+                  </TabsTrigger>
+                </Tooltip>
+              )}
+            </TabsList>
+          </div>
+          <div className="absolute inset-y-0 left-1 flex items-center sm:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full bg-background/90 shadow-sm border border-border/60"
+              onClick={() => scrollTabs("left")}
+              disabled={!tabScrollShadows.left}
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+          </div>
+          <div className="absolute inset-y-0 right-1 flex items-center sm:hidden">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 rounded-full bg-background/90 shadow-sm border border-border/60"
+              onClick={() => scrollTabs("right")}
+              disabled={!tabScrollShadows.right}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
         <TabsContent value="scenes" className="mt-4">
           <Card>
             <CardHeader>
@@ -2049,9 +2131,9 @@ export default function SessionDetailPage({
                   {session.testers?.map((t: Tester) => (
                     <div
                       key={t.id}
-                      className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 rounded-lg bg-secondary/30 group"
+                      className="flex items-start gap-3 sm:items-center sm:gap-4 justify-between p-4 rounded-lg bg-secondary/30 group"
                     >
-                      <div className="flex items-start sm:items-center gap-3 min-w-0">
+                      <div className="flex items-start sm:items-center gap-3 min-w-0 flex-1">
                         {session.status !== "completed" && (
                           <button
                             type="button"
@@ -2099,53 +2181,93 @@ export default function SessionDetailPage({
                         </div>
                       </div>
                       {session.status !== "completed" && (
-                        <div className="flex items-center gap-2 pl-8 sm:pl-0">
-                          <Tooltip content="Copy invite link" side="bottom">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => copyInviteLink(t.invite_token)}
-                              className="text-muted-foreground hover:text-foreground"
-                            >
-                              {copiedToken === t.invite_token ? (
-                                <Check className="w-4 h-4 text-green-500" />
-                              ) : (
-                                <Copy className="w-4 h-4" />
-                              )}
-                            </Button>
-                          </Tooltip>
-                          <Tooltip content="Open invite link" side="bottom">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-foreground"
-                              asChild
-                            >
-                              <Link href={`/join/${t.invite_token}`} target="_blank">
-                                <ExternalLink className="w-4 h-4" />
-                              </Link>
-                            </Button>
-                          </Tooltip>
-                          <Tooltip content="Edit tester" side="bottom">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-foreground"
-                              onClick={() => openEditTesterDialog(t)}
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </Button>
-                          </Tooltip>
-                          <Tooltip content="Delete tester" side="bottom">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => openDeleteTesterDialog(t)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </Tooltip>
+                        <div className="flex items-start sm:items-center gap-2 sm:gap-3 ml-auto shrink-0 pt-0.5">
+                          <div className="hidden sm:flex items-center gap-2">
+                            <Tooltip content="Copy invite link" side="bottom">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => copyInviteLink(t.invite_token)}
+                                className="text-muted-foreground hover:text-foreground"
+                              >
+                                {copiedToken === t.invite_token ? (
+                                  <Check className="w-4 h-4 text-green-500" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </Tooltip>
+                            <Tooltip content="Open invite link" side="bottom">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-foreground"
+                                asChild
+                              >
+                                <Link href={`/join/${t.invite_token}`} target="_blank">
+                                  <ExternalLink className="w-4 h-4" />
+                                </Link>
+                              </Button>
+                            </Tooltip>
+                            <Tooltip content="Edit tester" side="bottom">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-foreground"
+                                onClick={() => openEditTesterDialog(t)}
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                            <Tooltip content="Delete tester" side="bottom">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => openDeleteTesterDialog(t)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </Tooltip>
+                          </div>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="sm:hidden h-8 w-8 text-muted-foreground hover:text-foreground"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => copyInviteLink(t.invite_token)}>
+                                {copiedToken === t.invite_token ? (
+                                  <Check className="w-4 h-4 mr-2 text-green-500" />
+                                ) : (
+                                  <Copy className="w-4 h-4 mr-2" />
+                                )}
+                                Copy invite link
+                              </DropdownMenuItem>
+                              <DropdownMenuItem asChild>
+                                <Link href={`/join/${t.invite_token}`} target="_blank" className="flex items-center">
+                                  <ExternalLink className="w-4 h-4 mr-2" />
+                                  Open invite link
+                                </Link>
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => openEditTesterDialog(t)}>
+                                <Edit2 className="w-4 h-4 mr-2" />
+                                Edit tester
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => openDeleteTesterDialog(t)}
+                                className="text-destructive focus:text-destructive"
+                              >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete tester
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       )}
                     </div>

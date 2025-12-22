@@ -33,6 +33,16 @@
   }
 }
 
+/* Hide scrollbars for touch-friendly horizontal rails */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Light Mode - Alpine Echo inspired */
 :root {
   --background: 220 30% 97%;
