@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Plus, X, Loader2, AlertTriangle, GripVertical } from "lucide-react";
@@ -39,6 +39,40 @@ interface SceneInput {
   description: string | null;
 }
 
+function renderTextWithLinks(text: string) {
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s]+/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let linkIndex = 0;
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const href = match[2] || match[0];
+    const label = match[1] || match[0];
+    nodes.push(
+      <a
+        key={`link-${linkIndex++}-${match.index}`}
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="text-primary hover:underline break-words"
+      >
+        {label}
+      </a>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
 function FormattedDescription({ text }: { text: string }) {
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
@@ -47,11 +81,11 @@ function FormattedDescription({ text }: { text: string }) {
   const flushList = () => {
     if (currentList.length > 0) {
       elements.push(
-        <ul key={`list-${elements.length}`} className="space-y-0.5 ml-1">
+        <ul key={`list-${elements.length}`} className="space-y-0.5 ml-1 pl-3">
           {currentList.map((item, i) => (
             <li key={i} className="flex gap-2">
               <span className="text-primary">•</span>
-              <span>{item}</span>
+              <span>{renderTextWithLinks(item)}</span>
             </li>
           ))}
         </ul>
@@ -70,7 +104,11 @@ function FormattedDescription({ text }: { text: string }) {
       flushList();
     } else {
       flushList();
-      elements.push(<p key={`text-${index}`} className="text-xs">{trimmed}</p>);
+      elements.push(
+        <p key={`text-${index}`} className="text-xs">
+          {renderTextWithLinks(trimmed)}
+        </p>
+      );
     }
   });
   
@@ -146,11 +184,16 @@ export default function NewSessionPage() {
   const [loading, setLoading] = useState(false);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [descriptionHistory, setDescriptionHistory] = useState<string[]>([""]);
+  const [descriptionHistoryIndex, setDescriptionHistoryIndex] = useState(0);
+  const descriptionHistoryIndexRef = useRef(0);
+  const descriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [buildVersion, setBuildVersion] = useState("");
   const [scenes, setScenes] = useState<SceneInput[]>([]);
   const [addSceneDialog, setAddSceneDialog] = useState(false);
   const [newSceneName, setNewSceneName] = useState("");
   const [newSceneDescription, setNewSceneDescription] = useState("");
+  const newSceneDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [issueOptions, setIssueOptions] = useState<string[]>([]);
   const [newIssueOption, setNewIssueOption] = useState("");
 
@@ -167,6 +210,24 @@ export default function NewSessionPage() {
     setNewSceneName("");
     setNewSceneDescription("");
     setAddSceneDialog(true);
+  }
+
+  function insertIntoNewSceneDescription(snippet: string, startOnNewLine = false) {
+    const textarea = newSceneDescriptionRef.current;
+    if (textarea) {
+      const { selectionStart, selectionEnd } = textarea;
+      const needsNewLine = startOnNewLine && selectionStart > 0 && newSceneDescription[selectionStart - 1] !== "\n";
+      const insertion = needsNewLine ? `\n${snippet}` : snippet;
+      const nextValue = newSceneDescription.slice(0, selectionStart) + insertion + newSceneDescription.slice(selectionEnd);
+      setNewSceneDescription(nextValue);
+      requestAnimationFrame(() => {
+        const caret = selectionStart + insertion.length;
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      });
+    } else {
+      setNewSceneDescription((prev) => `${prev}${prev ? "\n" : ""}${snippet}`);
+    }
   }
 
   function handleAddScene() {
@@ -204,6 +265,49 @@ export default function NewSessionPage() {
     setNewIssueOption("");
   }
 
+  useEffect(() => {
+    descriptionHistoryIndexRef.current = descriptionHistoryIndex;
+  }, [descriptionHistoryIndex]);
+
+  function recordDescription(nextValue: string) {
+    setDescription(nextValue);
+    setDescriptionHistory((prev) => {
+      const trimmed = prev.slice(0, descriptionHistoryIndexRef.current + 1);
+      if (trimmed[trimmed.length - 1] === nextValue) return prev;
+      const nextHistory = [...trimmed, nextValue];
+      setDescriptionHistoryIndex(nextHistory.length - 1);
+      return nextHistory;
+    });
+  }
+
+  function handleDescriptionKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const isUndo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey;
+    if (isUndo && descriptionHistoryIndex > 0) {
+      e.preventDefault();
+      const prevIndex = descriptionHistoryIndex - 1;
+      setDescription(descriptionHistory[prevIndex]);
+      setDescriptionHistoryIndex(prevIndex);
+    }
+  }
+
+  function insertIntoDescription(snippet: string, startOnNewLine = false) {
+    const textarea = descriptionRef.current;
+    if (textarea) {
+      const { selectionStart, selectionEnd } = textarea;
+      const needsNewLine = startOnNewLine && selectionStart > 0 && description[selectionStart - 1] !== "\n";
+      const insertion = needsNewLine ? `\n${snippet}` : snippet;
+      const nextValue = description.slice(0, selectionStart) + insertion + description.slice(selectionEnd);
+      recordDescription(nextValue);
+      requestAnimationFrame(() => {
+        const caret = selectionStart + insertion.length;
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      });
+    } else {
+      recordDescription(`${description}${description ? "\n" : ""}${snippet}`);
+    }
+  }
+
   function removeIssueOption(option: string) {
     setIssueOptions(issueOptions.filter(o => o !== option));
   }
@@ -222,7 +326,18 @@ export default function NewSessionPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center gap-4"><Link href="/admin"><Button variant="ghost" size="icon"><ArrowLeft className="w-4 h-4" /></Button></Link><div><h1 className="text-2xl font-bold">Create Session</h1><p className="text-muted-foreground">Set up a new test session</p></div></div>
       <form onSubmit={handleSubmit} className="space-y-6">
-        <Card><CardHeader><CardTitle>Session Details</CardTitle><CardDescription>Basic information</CardDescription></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label htmlFor="name">Session Name *</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Sprint 24" required /></div><div className="space-y-2"><Label htmlFor="description">Description</Label><Textarea id="description" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Brief description of what's being tested..." className="min-h-[80px] resize-none" /></div><div className="space-y-2"><Label htmlFor="buildVersion">Build / Version</Label><Input id="buildVersion" value={buildVersion} onChange={(e) => setBuildVersion(e.target.value)} placeholder="e.g., v2.1.0" /></div></CardContent></Card>
+        <Card><CardHeader><CardTitle>Session Details</CardTitle><CardDescription>Basic information</CardDescription></CardHeader><CardContent className="space-y-4"><div className="space-y-2"><Label htmlFor="name">Session Name *</Label><Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g., Sprint 24" required /></div><div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="description">Description</Label>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              <span className="hidden sm:inline">Quick format</span>
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoDescription("• ", true)}>Bullet</Button>
+              <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoDescription("[Link text](https://)", false)}>Add link</Button>
+            </div>
+          </div>
+          <Textarea id="description" ref={descriptionRef} value={description} onChange={(e) => recordDescription(e.target.value)} onKeyDown={handleDescriptionKeyDown} placeholder={"Add context, links, and bullets:\n• Goals for this session\n• Known issues or areas to avoid\n• Useful links: https://example.com/docs"} className="min-h-[100px] resize-none" />
+          <p className="text-xs text-muted-foreground">Use bullet points for clarity and add reference links with the toolbar.</p>
+        </div><div className="space-y-2"><Label htmlFor="buildVersion">Build / Version</Label><Input id="buildVersion" value={buildVersion} onChange={(e) => setBuildVersion(e.target.value)} placeholder="e.g., v2.1.0" /></div></CardContent></Card>
         <Card>
           <CardHeader><CardTitle>Scenes</CardTitle><CardDescription>Areas being tested</CardDescription></CardHeader>
           <CardContent className="space-y-4">
@@ -369,27 +484,35 @@ export default function NewSessionPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="sceneName">Scene Name</Label>
-              <Input
-                id="sceneName"
-                value={newSceneName}
+          <div className="space-y-2">
+            <Label htmlFor="sceneName">Scene Name</Label>
+            <Input
+              id="sceneName"
+              value={newSceneName}
                 onChange={(e) => setNewSceneName(e.target.value)}
                 placeholder="e.g., Login Flow"
               />
             </div>
-            <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
               <Label htmlFor="sceneDescription">What to Test <span className="text-muted-foreground font-normal">(optional)</span></Label>
-              <Textarea
-                id="sceneDescription"
-                value={newSceneDescription}
-                onChange={(e) => setNewSceneDescription(e.target.value)}
-                placeholder={"Use bullet points for clarity:\n• Test player movement and controls\n• Check collision detection\n• Verify UI interactions work correctly"}
-                className="min-h-[120px] resize-none"
-              />
-              <p className="text-xs text-muted-foreground">Tip: Use • or - for bullet points</p>
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <span className="hidden sm:inline">Quick format</span>
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoNewSceneDescription("• ", true)}>Bullet</Button>
+                <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoNewSceneDescription("[Link text](https://)", false)}>Add link</Button>
+              </div>
             </div>
+            <Textarea
+              id="sceneDescription"
+              ref={newSceneDescriptionRef}
+              value={newSceneDescription}
+              onChange={(e) => setNewSceneDescription(e.target.value)}
+              placeholder={"Use bullet points for clarity:\n• Test player movement and controls\n• Check collision detection\n• Verify UI interactions work correctly"}
+              className="min-h-[120px] resize-none"
+            />
+            <p className="text-xs text-muted-foreground">Tip: Use • or - for bullet points</p>
           </div>
+        </div>
           <DialogFooter>
             <Button type="button" variant="ghost" onClick={() => setAddSceneDialog(false)}>
               Cancel

@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -225,7 +225,41 @@ function SortableSceneItem({
   );
 }
 
-function FormattedDescription({ text }: { text: string }) {
+function renderTextWithLinks(text: string) {
+  const regex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|https?:\/\/[^\s]+/g;
+  const nodes: React.ReactNode[] = [];
+  let lastIndex = 0;
+  let linkIndex = 0;
+
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      nodes.push(text.slice(lastIndex, match.index));
+    }
+    const href = match[2] || match[0];
+    const label = match[1] || match[0];
+    nodes.push(
+      <a
+        key={`link-${linkIndex++}-${match.index}`}
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="text-primary hover:underline break-words"
+      >
+        {label}
+      </a>
+    );
+    lastIndex = regex.lastIndex;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes;
+}
+
+function FormattedDescription({ text, className }: { text: string; className?: string }) {
   const lines = text.split('\n');
   const elements: React.ReactNode[] = [];
   let currentList: string[] = [];
@@ -233,11 +267,11 @@ function FormattedDescription({ text }: { text: string }) {
   const flushList = () => {
     if (currentList.length > 0) {
       elements.push(
-        <ul key={`list-${elements.length}`} className="space-y-1.5 w-full">
+        <ul key={`list-${elements.length}`} className="space-y-1.5 w-full pl-3">
           {currentList.map((item, i) => (
             <li key={i} className="flex gap-2">
               <span className="text-primary shrink-0">•</span>
-              <span className="flex-1">{item}</span>
+              <span className="flex-1">{renderTextWithLinks(item)}</span>
             </li>
           ))}
         </ul>
@@ -261,13 +295,17 @@ function FormattedDescription({ text }: { text: string }) {
       }
     } else {
       flushList();
-      elements.push(<p key={`text-${index}`} className="text-sm">{trimmed}</p>);
+      elements.push(
+        <p key={`text-${index}`} className="text-sm">
+          {renderTextWithLinks(trimmed)}
+        </p>
+      );
     }
   });
   
   flushList();
   
-  return <div className="text-sm text-muted-foreground space-y-2">{elements}</div>;
+  return <div className={className || "text-sm text-muted-foreground space-y-2"}>{elements}</div>;
 }
 
 // Component to render the session AI summary with proper formatting
@@ -435,12 +473,14 @@ export default function SessionDetailPage({
   const [addSceneDialog, setAddSceneDialog] = useState(false);
   const [newSceneName, setNewSceneName] = useState("");
   const [newSceneDescription, setNewSceneDescription] = useState("");
+  const addSceneDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [newScenePollQuestions, setNewScenePollQuestions] = useState<PollQuestionInput[]>([]);
   const [addingScene, setAddingScene] = useState(false);
   const [editSceneDialog, setEditSceneDialog] = useState(false);
   const [editingScene, setEditingScene] = useState<Scene | null>(null);
   const [editSceneName, setEditSceneName] = useState("");
   const [editSceneDescription, setEditSceneDescription] = useState("");
+  const editSceneDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [editScenePollQuestions, setEditScenePollQuestions] = useState<PollQuestionInput[]>([]);
   const [savingScene, setSavingScene] = useState(false);
   const [deleteSceneDialog, setDeleteSceneDialog] = useState(false);
@@ -454,6 +494,10 @@ export default function SessionDetailPage({
   const [editSessionDialog, setEditSessionDialog] = useState(false);
   const [editSessionName, setEditSessionName] = useState("");
   const [editSessionDescription, setEditSessionDescription] = useState("");
+  const [editSessionDescriptionHistory, setEditSessionDescriptionHistory] = useState<string[]>([""]);
+  const [editSessionDescriptionHistoryIndex, setEditSessionDescriptionHistoryIndex] = useState(0);
+  const editSessionDescriptionHistoryIndexRef = useRef(0);
+  const editSessionDescriptionRef = useRef<HTMLTextAreaElement | null>(null);
   const [editSessionBuildVersion, setEditSessionBuildVersion] = useState("");
   const [editSessionIssueOptions, setEditSessionIssueOptions] = useState<string[]>([]);
   const [newIssueOption, setNewIssueOption] = useState("");
@@ -793,6 +837,30 @@ export default function SessionDetailPage({
       setSelectedMembers(new Set(availableMembers.map((m) => m.id)));
     }
   }
+
+  function insertIntoSceneDescription(
+    snippet: string,
+    startOnNewLine = false,
+    ref: React.RefObject<HTMLTextAreaElement>,
+    value: string,
+    setter: React.Dispatch<React.SetStateAction<string>>
+  ) {
+    const textarea = ref.current;
+    if (textarea) {
+      const { selectionStart, selectionEnd } = textarea;
+      const needsNewLine = startOnNewLine && selectionStart > 0 && value[selectionStart - 1] !== "\n";
+      const insertion = needsNewLine ? `\n${snippet}` : snippet;
+      const nextValue = value.slice(0, selectionStart) + insertion + value.slice(selectionEnd);
+      setter(nextValue);
+      requestAnimationFrame(() => {
+        const caret = selectionStart + insertion.length;
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      });
+    } else {
+      setter((prev) => `${prev}${prev ? "\n" : ""}${snippet}`);
+    }
+  }
   async function handleStartSession() {
     await fetch(`/api/sessions/${id}`, {
       method: "PATCH",
@@ -814,7 +882,10 @@ export default function SessionDetailPage({
   function openEditSessionDialog() {
     if (!session) return;
     setEditSessionName(session.name);
-    setEditSessionDescription(session.description || "");
+    const initialDescription = session.description || "";
+    setEditSessionDescription(initialDescription);
+    setEditSessionDescriptionHistory([initialDescription]);
+    setEditSessionDescriptionHistoryIndex(0);
     setEditSessionBuildVersion(session.build_version || "");
     setEditSessionIssueOptions(session.issue_options || []);
     setNewIssueOption("");
@@ -831,6 +902,49 @@ export default function SessionDetailPage({
 
   function removeEditIssueOption(option: string) {
     setEditSessionIssueOptions(editSessionIssueOptions.filter(o => o !== option));
+  }
+
+  useEffect(() => {
+    editSessionDescriptionHistoryIndexRef.current = editSessionDescriptionHistoryIndex;
+  }, [editSessionDescriptionHistoryIndex]);
+
+  function recordEditSessionDescription(nextValue: string) {
+    setEditSessionDescription(nextValue);
+    setEditSessionDescriptionHistory((prev) => {
+      const trimmed = prev.slice(0, editSessionDescriptionHistoryIndexRef.current + 1);
+      if (trimmed[trimmed.length - 1] === nextValue) return prev;
+      const nextHistory = [...trimmed, nextValue];
+      setEditSessionDescriptionHistoryIndex(nextHistory.length - 1);
+      return nextHistory;
+    });
+  }
+
+  function handleEditDescriptionKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const isUndo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !e.shiftKey;
+    if (isUndo && editSessionDescriptionHistoryIndex > 0) {
+      e.preventDefault();
+      const prevIndex = editSessionDescriptionHistoryIndex - 1;
+      setEditSessionDescription(editSessionDescriptionHistory[prevIndex]);
+      setEditSessionDescriptionHistoryIndex(prevIndex);
+    }
+  }
+
+  function insertIntoEditDescription(snippet: string, startOnNewLine = false) {
+    const textarea = editSessionDescriptionRef.current;
+    if (textarea) {
+      const { selectionStart, selectionEnd } = textarea;
+      const needsNewLine = startOnNewLine && selectionStart > 0 && editSessionDescription[selectionStart - 1] !== "\n";
+      const insertion = needsNewLine ? `\n${snippet}` : snippet;
+      const nextValue = editSessionDescription.slice(0, selectionStart) + insertion + editSessionDescription.slice(selectionEnd);
+      recordEditSessionDescription(nextValue);
+      requestAnimationFrame(() => {
+        const caret = selectionStart + insertion.length;
+        textarea.focus();
+        textarea.setSelectionRange(caret, caret);
+      });
+    } else {
+      recordEditSessionDescription(`${editSessionDescription}${editSessionDescription ? "\n" : ""}${snippet}`);
+    }
   }
 
   async function handleSaveSession() {
@@ -1602,9 +1716,9 @@ export default function SessionDetailPage({
         </div>
       </div>
       {session.description && (
-        <p className="text-sm pt-3 text-muted-foreground">
-          {session.description}
-        </p>
+        <div className="pt-3">
+          <FormattedDescription text={session.description} className="text-sm text-muted-foreground space-y-2" />
+        </div>
       )}
     </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
@@ -2783,9 +2897,17 @@ export default function SessionDetailPage({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sceneDescription">What to Test <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="sceneDescription">What to Test <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="hidden sm:inline">Quick format</span>
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoSceneDescription("• ", true, addSceneDescriptionRef, newSceneDescription, setNewSceneDescription)}>Bullet</Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoSceneDescription("[Link text](https://)", false, addSceneDescriptionRef, newSceneDescription, setNewSceneDescription)}>Add link</Button>
+                </div>
+              </div>
               <Textarea
                 id="sceneDescription"
+                ref={addSceneDescriptionRef}
                 value={newSceneDescription}
                 onChange={(e) => setNewSceneDescription(e.target.value)}
                 placeholder={"Use bullet points for clarity:\n• Test player movement and controls\n• Check collision detection\n• Verify UI interactions work correctly"}
@@ -2985,9 +3107,17 @@ export default function SessionDetailPage({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editSceneDescription">What to Test <span className="text-muted-foreground font-normal">(optional)</span></Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="editSceneDescription">What to Test <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="hidden sm:inline">Quick format</span>
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoSceneDescription("• ", true, editSceneDescriptionRef, editSceneDescription, setEditSceneDescription)}>Bullet</Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoSceneDescription("[Link text](https://)", false, editSceneDescriptionRef, editSceneDescription, setEditSceneDescription)}>Add link</Button>
+                </div>
+              </div>
               <Textarea
                 id="editSceneDescription"
+                ref={editSceneDescriptionRef}
                 value={editSceneDescription}
                 onChange={(e) => setEditSceneDescription(e.target.value)}
                 placeholder={"Use bullet points for clarity:\n• Test player movement and controls\n• Check collision detection\n• Verify UI interactions work correctly"}
@@ -3684,14 +3814,24 @@ export default function SessionDetailPage({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="editSessionDescription">Description</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="editSessionDescription">Description</Label>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <span className="hidden sm:inline">Quick format</span>
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoEditDescription("• ", true)}>Bullet</Button>
+                  <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => insertIntoEditDescription("[Link text](https://)", false)}>Add link</Button>
+                </div>
+              </div>
               <Textarea
                 id="editSessionDescription"
+                ref={editSessionDescriptionRef}
                 value={editSessionDescription}
-                onChange={(e) => setEditSessionDescription(e.target.value)}
-                placeholder="Brief description of what's being tested..."
-                className="min-h-[80px] resize-none"
+                onChange={(e) => recordEditSessionDescription(e.target.value)}
+                onKeyDown={handleEditDescriptionKeyDown}
+                placeholder={"Add context, links, and bullets:\n• Goals for this session\n• Known issues or areas to avoid\n• Useful links: https://example.com/docs"}
+                className="min-h-[100px] resize-none"
               />
+              <p className="text-xs text-muted-foreground">Use bullet points for clarity and add reference links with the toolbar.</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="editSessionBuildVersion">Build / Version</Label>
