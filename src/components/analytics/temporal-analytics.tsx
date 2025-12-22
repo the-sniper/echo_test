@@ -43,25 +43,35 @@ export function TemporalAnalyticsCard({ session }: TemporalAnalyticsCardProps) {
 
         {/* Activity Timeline */}
         {temporal.notesByTimeSegment.length > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <div className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Activity className="w-4 h-4" />
               Activity Timeline
             </div>
-            <div className="flex gap-1 h-16 items-end">
+            <div className="flex gap-1.5 h-20 items-end">
               {temporal.notesByTimeSegment.map((segment, i) => (
                 <div key={i} className="flex-1 flex flex-col items-center gap-1">
                   <div className="flex-1 w-full flex flex-col justify-end">
-                    <div
-                      className="w-full bg-primary/60 rounded-t transition-all duration-300"
-                      style={{ height: `${(segment.count / maxSegmentCount) * 100}%`, minHeight: segment.count > 0 ? "4px" : "0" }}
-                    />
-                    {segment.bugs > 0 && (
-                      <div
-                        className="w-full bg-[#fb7088] rounded-t"
-                        style={{ height: `${(segment.bugs / maxSegmentCount) * 100}%`, minHeight: "4px" }}
-                      />
-                    )}
+                    {(() => {
+                      const nonBug = Math.max(segment.count - segment.bugs, 0);
+                      const totalHeight = (segment.count / maxSegmentCount) * 100;
+                      const bugHeight = (segment.bugs / maxSegmentCount) * 100;
+                      const nonBugHeight = Math.max(totalHeight - bugHeight, 0);
+                      return (
+                        <>
+                          <div
+                            className="w-full bg-primary/60 rounded-t transition-all duration-300"
+                            style={{ height: `${nonBugHeight}%`, minHeight: nonBug > 0 ? "10px" : "0" }}
+                          />
+                          {segment.bugs > 0 && (
+                            <div
+                              className="w-full bg-[#fb7088] rounded-b-none transition-all duration-300"
+                              style={{ height: `${bugHeight}%`, minHeight: "8px" }}
+                            />
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                   <div className="text-[10px] text-muted-foreground text-center leading-tight">
                     {segment.segment.split(" ")[0]}
@@ -69,7 +79,17 @@ export function TemporalAnalyticsCard({ session }: TemporalAnalyticsCardProps) {
                 </div>
               ))}
             </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
+            <div className="flex justify-end gap-3 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-sm bg-primary/60" />
+                <span>Total notes</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-2.5 h-2.5 rounded-sm bg-[#fb7088]" />
+                <span>Bugs</span>
+              </div>
+            </div>
+            <div className="flex justify-between text-xs text-muted-foreground pt-1">
               <span>Start</span>
               <span>End</span>
             </div>
@@ -115,6 +135,7 @@ export function TemporalAnalyticsCard({ session }: TemporalAnalyticsCardProps) {
             Peak activity: <span className="font-medium text-foreground">{temporal.peakSegment}</span>
           </div>
         )}
+
       </CardContent>
     </Card>
   );

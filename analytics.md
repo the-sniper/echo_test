@@ -160,8 +160,8 @@
 - [x] Activity Timeline (4 quarters)
 - [x] Early vs Late Discovery Pattern
 - [x] Content Quality Metrics (avg note length, audio coverage, AI summaries, edit rate)
-- [x] Cross-Tester Agreement (shared keywords, consensus topics)
-- [x] Trends & Themes (keyword frequency, sentiment indicator)
+- [x] Tester Engagement (participation rate, avg notes/tester, top contributors)
+- [x] Trends & Themes (sentiment indicator, experience balance, top reported issues)
 - [x] Historical Comparison (bug trends across sessions)
 
 ### Files Created
@@ -171,8 +171,8 @@
 - `src/components/analytics/temporal-analytics.tsx` - Time-based metrics
 - `src/components/analytics/content-quality.tsx` - Note quality metrics
 - `src/components/analytics/category-insights.tsx` - Category analysis
-- `src/components/analytics/cross-tester-agreement.tsx` - Agreement analysis
-- `src/components/analytics/trends-themes.tsx` - Theme extraction
+- `src/components/analytics/tester-engagement.tsx` - Participation & contribution analysis
+- `src/components/analytics/trends-themes.tsx` - Sentiment, experience balance, and issue highlights
 - `src/components/analytics/historical-comparison.tsx` - Cross-session comparison
 - `src/app/api/sessions/[id]/historical/route.ts` - Historical data API
 - `src/app/api/public/report/[token]/historical/route.ts` - Public historical API

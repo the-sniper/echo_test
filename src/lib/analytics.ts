@@ -35,6 +35,8 @@ export interface ContentQualityMetrics {
 export interface CategoryInsights {
   bugToFeatureRatio: number | null;
   dominantCategory: NoteCategory;
+  concentrationScore: number; // 0-100, higher = more concentrated
+  topCategoryShare: number; // 0-100
   categoryByScene: {
     sceneId: string;
     sceneName: string;
@@ -43,17 +45,24 @@ export interface CategoryInsights {
   totalByCategory: Record<NoteCategory, number>;
 }
 
-export interface CrossTesterAgreement {
-  commonKeywords: { keyword: string; count: number; testerCount: number }[];
-  sharedFindingsRate: number; // percentage of keywords mentioned by 2+ testers
-  uniqueKeywords: number;
-  sharedKeywords: number;
+export interface TrendsAndThemes {
+  sentimentIndicator: "positive" | "negative" | "neutral" | "mixed";
+  topIssues: { issue: string; count: number }[];
+  positiveNotes: number;
+  negativeNotes: number;
+  mixedNotes: number;
+  neutralNotes: number;
+  totalNotes: number;
 }
 
-export interface TrendsAndThemes {
-  topKeywords: { word: string; count: number }[];
-  themes: string[];
-  sentimentIndicator: "positive" | "negative" | "neutral" | "mixed";
+export interface TesterEngagement {
+  participationRate: number;
+  averageNotesPerTester: number;
+  testersWithNotes: number;
+  totalTesters: number;
+  totalNotes: number;
+  silentTesters: { id: string; name: string }[];
+  topContributors: { id: string; name: string; noteCount: number }[];
 }
 
 export interface HistoricalSession {
@@ -73,29 +82,6 @@ export interface HistoricalComparison {
   bugChangePercent: number | null;
   averageBugs: number;
 }
-
-// ============================================================================
-// Stop Words for Keyword Analysis
-// ============================================================================
-
-const STOP_WORDS = new Set([
-  "the", "a", "an", "and", "or", "but", "in", "on", "at", "to", "for", "of", "with",
-  "by", "from", "as", "is", "was", "are", "were", "been", "be", "have", "has", "had",
-  "do", "does", "did", "will", "would", "could", "should", "may", "might", "must",
-  "shall", "can", "need", "dare", "ought", "used", "it", "its", "this", "that",
-  "these", "those", "i", "you", "he", "she", "we", "they", "what", "which", "who",
-  "whom", "whose", "where", "when", "why", "how", "all", "each", "every", "both",
-  "few", "more", "most", "other", "some", "such", "no", "nor", "not", "only", "own",
-  "same", "so", "than", "too", "very", "just", "also", "now", "here", "there", "then",
-  "once", "if", "because", "until", "while", "although", "though", "after", "before",
-  "above", "below", "up", "down", "out", "off", "over", "under", "again", "further",
-  "into", "through", "during", "about", "against", "between", "without", "being",
-  "having", "doing", "said", "says", "like", "get", "got", "going", "goes", "went",
-  "think", "know", "see", "come", "came", "make", "made", "take", "took", "want",
-  "really", "thing", "things", "something", "anything", "everything", "nothing",
-  "someone", "anyone", "everyone", "im", "dont", "doesnt", "didnt", "cant", "wont",
-  "youre", "theyre", "were", "hes", "shes", "its", "thats", "whats", "theres"
-]);
 
 // ============================================================================
 // Scene Analytics
@@ -298,6 +284,7 @@ export function calculateCategoryInsights(session: SessionWithDetails): Category
     other: 0,
   };
   notes.forEach((n) => totalByCategory[n.category]++);
+  const totalNotes = notes.length;
 
   // Bug to feature ratio
   const bugToFeatureRatio =
@@ -328,73 +315,71 @@ export function calculateCategoryInsights(session: SessionWithDetails): Category
     };
   });
 
+  // Concentration score (Herfindahl–Hirschman style) and top category share
+  let concentrationScore = 0;
+  let topCategoryShare = 0;
+  if (totalNotes > 0) {
+    const shares = (Object.values(totalByCategory) as number[])
+      .filter((count) => count > 0)
+      .map((count) => count / totalNotes);
+    concentrationScore = shares.reduce((sum, share) => sum + share * share, 0) * 100;
+    topCategoryShare = Math.max(...shares) * 100;
+  }
+
   return {
     bugToFeatureRatio,
     dominantCategory,
+    concentrationScore,
+    topCategoryShare,
     categoryByScene,
     totalByCategory,
   };
 }
 
 // ============================================================================
-// Cross-Tester Agreement
+// Tester Engagement
 // ============================================================================
 
-export function calculateCrossTesterAgreement(session: SessionWithDetails): CrossTesterAgreement {
+export function calculateTesterEngagement(session: SessionWithDetails): TesterEngagement {
+  const testers = session.testers || [];
   const notes = session.notes || [];
 
-  // Extract keywords from all notes
-  const keywordsByTester: Map<string, Set<string>> = new Map();
-  const keywordCounts: Map<string, { count: number; testers: Set<string> }> = new Map();
-
+  const noteCounts = new Map<string, number>();
   notes.forEach((note) => {
-    const text = (note.edited_transcript || note.raw_transcript || "").toLowerCase();
-    const words = text
-      .split(/[\s.,!?;:'"()\[\]{}]+/)
-      .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
-
-    const uniqueWords = new Set(words);
-    
-    if (!keywordsByTester.has(note.tester_id)) {
-      keywordsByTester.set(note.tester_id, new Set());
-    }
-    const testerKeywords = keywordsByTester.get(note.tester_id)!;
-
-    uniqueWords.forEach((word) => {
-      testerKeywords.add(word);
-      
-      if (!keywordCounts.has(word)) {
-        keywordCounts.set(word, { count: 0, testers: new Set() });
-      }
-      const entry = keywordCounts.get(word)!;
-      entry.count++;
-      entry.testers.add(note.tester_id);
-    });
+    noteCounts.set(note.tester_id, (noteCounts.get(note.tester_id) || 0) + 1);
   });
 
-  // Sort by tester count (agreement indicator)
-  const commonKeywords = Array.from(keywordCounts.entries())
-    .map(([keyword, data]) => ({
-      keyword,
-      count: data.count,
-      testerCount: data.testers.size,
-    }))
-    .filter((k) => k.testerCount > 1) // Only keywords mentioned by 2+ testers
-    .sort((a, b) => b.testerCount - a.testerCount || b.count - a.count)
-    .slice(0, 15);
+  const testersWithNotes = Array.from(noteCounts.keys()).length;
+  const participationRate = testers.length > 0 ? (testersWithNotes / testers.length) * 100 : 0;
+  const averageNotesPerTester = testers.length > 0 ? notes.length / testers.length : 0;
 
-  const totalKeywords = keywordCounts.size;
-  const sharedKeywords = Array.from(keywordCounts.values()).filter(
-    (k) => k.testers.size > 1
-  ).length;
-  const uniqueKeywords = totalKeywords - sharedKeywords;
-  const sharedFindingsRate = totalKeywords > 0 ? (sharedKeywords / totalKeywords) * 100 : 0;
+  const formatName = (tester: Tester) => {
+    const fullName = [tester.first_name, tester.last_name].filter(Boolean).join(" ").trim();
+    return fullName || tester.email || "Tester";
+  };
+
+  const topContributors = testers
+    .map((tester) => ({
+      id: tester.id,
+      name: formatName(tester),
+      noteCount: noteCounts.get(tester.id) || 0,
+    }))
+    .filter((t) => t.noteCount > 0)
+    .sort((a, b) => b.noteCount - a.noteCount)
+    .slice(0, 3);
+
+  const silentTesters = testers
+    .filter((tester) => !noteCounts.get(tester.id))
+    .map((tester) => ({ id: tester.id, name: formatName(tester) }));
 
   return {
-    commonKeywords,
-    sharedFindingsRate,
-    uniqueKeywords,
-    sharedKeywords,
+    participationRate,
+    averageNotesPerTester,
+    testersWithNotes,
+    totalTesters: testers.length,
+    totalNotes: notes.length,
+    silentTesters,
+    topContributors,
   };
 }
 
@@ -405,88 +390,62 @@ export function calculateCrossTesterAgreement(session: SessionWithDetails): Cros
 export function calculateTrendsAndThemes(session: SessionWithDetails): TrendsAndThemes {
   const notes = session.notes || [];
 
-  // Extract keywords for word frequency
-  const wordCounts: Map<string, number> = new Map();
+  const totalNotes = notes.length;
 
-  notes.forEach((note) => {
-    const text = (note.edited_transcript || note.raw_transcript || "").toLowerCase();
-    const words = text
-      .split(/[\s.,!?;:'"()\[\]{}]+/)
-      .filter((w) => w.length > 3 && !STOP_WORDS.has(w));
-
-    words.forEach((word) => {
-      wordCounts.set(word, (wordCounts.get(word) || 0) + 1);
+  // Reported issues surfaced by testers
+  const issueCounts: Map<string, number> = new Map();
+  (session.testers || []).forEach((tester) => {
+    (tester.reported_issues || []).forEach((issue) => {
+      issueCounts.set(issue, (issueCounts.get(issue) || 0) + 1);
     });
   });
 
-  const topKeywords = Array.from(wordCounts.entries())
-    .map(([word, count]) => ({ word, count }))
+  const topIssues = Array.from(issueCounts.entries())
+    .map(([issue, count]) => ({ issue, count }))
     .sort((a, b) => b.count - a.count)
-    .slice(0, 20);
+    .slice(0, 5);
 
-  // Extract themes from AI summaries
-  const themes: string[] = [];
-  
-  // Parse session AI summary for themes
-  if (session.ai_summary) {
-    // Look for common theme indicators
-    const themePatterns = [
-      /theme[s]?:?\s*([^.]+)/gi,
-      /key (?:issue|finding|point)[s]?:?\s*([^.]+)/gi,
-      /main (?:concern|problem)[s]?:?\s*([^.]+)/gi,
-    ];
-    
-    themePatterns.forEach((pattern) => {
-      let match;
-      while ((match = pattern.exec(session.ai_summary!)) !== null) {
-        if (match[1]) {
-          themes.push(match[1].trim());
-        }
-      }
-    });
-
-    // Also extract bold items as potential themes
-    const boldPattern = /\*\*([^*]+)\*\*/g;
-    let boldMatch;
-    while ((boldMatch = boldPattern.exec(session.ai_summary)) !== null) {
-      if (boldMatch[1] && boldMatch[1].length < 50 && !boldMatch[1].includes(":")) {
-        themes.push(boldMatch[1].trim());
-      }
-    }
-  }
-
-  // Deduplicate themes
-  const uniqueThemes = Array.from(new Set(themes)).slice(0, 5);
-
-  // Sentiment analysis (simple keyword-based)
-  let positiveCount = 0;
-  let negativeCount = 0;
+  // Sentiment analysis (note-level, keyword-based)
+  let positiveNotes = 0;
+  let negativeNotes = 0;
+  let mixedNotes = 0;
+  let neutralNotes = 0;
   const positiveWords = ["good", "great", "excellent", "nice", "love", "works", "smooth", "easy", "intuitive"];
   const negativeWords = ["bad", "broken", "crash", "error", "bug", "issue", "problem", "fail", "confusing", "hard", "difficult", "slow", "frustrating"];
 
   notes.forEach((note) => {
     const text = (note.edited_transcript || note.raw_transcript || "").toLowerCase();
-    positiveWords.forEach((w) => {
-      if (text.includes(w)) positiveCount++;
-    });
-    negativeWords.forEach((w) => {
-      if (text.includes(w)) negativeCount++;
-    });
+    const hasPositive = positiveWords.some((w) => text.includes(w));
+    const hasNegative = negativeWords.some((w) => text.includes(w));
+
+    if (hasPositive && hasNegative) {
+      mixedNotes++;
+    } else if (hasPositive) {
+      positiveNotes++;
+    } else if (hasNegative) {
+      negativeNotes++;
+    } else {
+      neutralNotes++;
+    }
   });
 
   let sentimentIndicator: "positive" | "negative" | "neutral" | "mixed" = "neutral";
-  if (positiveCount > negativeCount * 2) {
+  if (positiveNotes > negativeNotes * 2) {
     sentimentIndicator = "positive";
-  } else if (negativeCount > positiveCount * 2) {
+  } else if (negativeNotes > positiveNotes * 2) {
     sentimentIndicator = "negative";
-  } else if (positiveCount > 0 && negativeCount > 0) {
+  } else if (positiveNotes > 0 && negativeNotes > 0) {
     sentimentIndicator = "mixed";
   }
 
   return {
-    topKeywords,
-    themes: uniqueThemes,
     sentimentIndicator,
+    topIssues,
+    positiveNotes,
+    negativeNotes,
+    mixedNotes,
+    neutralNotes,
+    totalNotes,
   };
 }
 

@@ -28,7 +28,7 @@ const colors = {
   bugBg: "#fef2f4",
   feature: "#6e71f1",
   featureBg: "#f0f0fe",
-  ux: "#03bcfa",
+  ux: "#a4e8ff",
   uxBg: "#e6f9ff",
   performance: "#EA580C",
   performanceBg: "#FFF7ED",

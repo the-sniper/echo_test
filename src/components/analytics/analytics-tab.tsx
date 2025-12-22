@@ -7,7 +7,7 @@ import { SceneAnalyticsCard } from "./scene-analytics";
 import { TemporalAnalyticsCard } from "./temporal-analytics";
 import { ContentQualityCard } from "./content-quality";
 import { CategoryInsightsCard } from "./category-insights";
-import { CrossTesterAgreementCard } from "./cross-tester-agreement";
+import { TesterEngagementCard } from "./tester-engagement";
 import { TrendsThemesCard } from "./trends-themes";
 import { HistoricalComparisonCard } from "./historical-comparison";
 import { Loader2 } from "lucide-react";
@@ -74,7 +74,7 @@ export function AnalyticsTab({ session, pollResponses, sessionId, shareToken }: 
 
       {/* Row 4: Agreement & Trends */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <CrossTesterAgreementCard session={session} />
+        <TesterEngagementCard session={session} />
         <TrendsThemesCard session={session} />
       </div>
 

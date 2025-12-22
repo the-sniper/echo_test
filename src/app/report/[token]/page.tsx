@@ -68,7 +68,7 @@ function SessionSummaryContent({ summary }: { summary: string }) {
         const categoryColor: Record<string, string> = {
           BUG: "bg-[#fb7088]/20 text-[#fb7088]",
           FEATURE: "bg-[#6e71f1]/20 text-[#6e71f1]",
-          UX: "bg-[#03bcfa]/20 text-[#03bcfa]",
+          UX: "bg-[#a4e8ff]/40 text-[#0095c6]",
           PERFORMANCE: "bg-orange-500/20 text-orange-600 dark:text-orange-400",
           OTHER: "bg-gray-500/20 text-gray-600 dark:text-gray-400",
         };

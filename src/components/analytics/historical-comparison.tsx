@@ -80,7 +80,14 @@ export function HistoricalComparisonCard({ session, pastSessions }: HistoricalCo
               <span className="font-medium">{trend.label}</span>
             </div>
             {comparison.bugChangePercent !== null && (
-              <Badge variant="secondary" className={trend.color}>
+              <Badge
+                variant="secondary"
+                className={`${trend.color} ${
+                  comparison.bugTrend === "worsening"
+                    ? "bg-white/80 border border-[#fb7088]/40 dark:bg-transparent dark:border-transparent"
+                    : ""
+                }`}
+              >
                 {comparison.bugChangePercent > 0 ? "+" : ""}
                 {Math.round(comparison.bugChangePercent)}% vs last session
               </Badge>

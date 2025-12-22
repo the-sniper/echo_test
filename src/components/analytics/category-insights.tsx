@@ -16,7 +16,7 @@ interface CategoryInsightsCardProps {
 const CATEGORY_COLORS: Record<NoteCategory, string> = {
   bug: "#fb7088",      // coral pink
   feature: "#6e71f1",  // purple
-  ux: "#03bcfa",       // cyan blue
+  ux: "#a4e8ff",       // light blue
   performance: "#f59e0b", // amber
   other: "#94a3b8",    // slate
 };
@@ -24,7 +24,7 @@ const CATEGORY_COLORS: Record<NoteCategory, string> = {
 const categoryColorClasses: Record<NoteCategory, { bg: string; text: string }> = {
   bug: { bg: "bg-[#fb7088]", text: "text-[#fb7088]" },
   feature: { bg: "bg-[#6e71f1]", text: "text-[#6e71f1]" },
-  ux: { bg: "bg-[#03bcfa]", text: "text-[#03bcfa]" },
+  ux: { bg: "bg-[#a4e8ff]", text: "text-[#a4e8ff]" },
   performance: { bg: "bg-amber-500", text: "text-amber-500" },
   other: { bg: "bg-slate-400", text: "text-slate-400" },
 };
@@ -36,18 +36,6 @@ export function CategoryInsightsCard({ session }: CategoryInsightsCardProps) {
   const scenesWithNotes = insights.categoryByScene.filter(
     (s) => Object.values(s.categories).reduce((a, b) => a + b, 0) > 0
   );
-
-  // Data for Bug vs Feature pie chart
-  const bugFeatureData = useMemo(() => {
-    const data = [];
-    if (insights.totalByCategory.bug > 0) {
-      data.push({ name: "Bugs", value: insights.totalByCategory.bug, color: CATEGORY_COLORS.bug });
-    }
-    if (insights.totalByCategory.feature > 0) {
-      data.push({ name: "Features", value: insights.totalByCategory.feature, color: CATEGORY_COLORS.feature });
-    }
-    return data;
-  }, [insights]);
 
   // Data for overall distribution pie chart
   const distributionData = useMemo(() => {
@@ -61,14 +49,17 @@ export function CategoryInsightsCard({ session }: CategoryInsightsCardProps) {
       }));
   }, [insights]);
 
-  // Interpretation text
-  const getInterpretation = () => {
-    if (!insights.bugToFeatureRatio) return "No feature requests recorded";
-    if (insights.bugToFeatureRatio > 3) return "Heavy focus on bug finding";
-    if (insights.bugToFeatureRatio > 1.5) return "Good balance with slight bug focus";
-    if (insights.bugToFeatureRatio > 0.5) return "Balanced feedback";
-    return "Strong feature ideation";
-  };
+  const concentrationLabel = useMemo(() => {
+    if (totalNotes === 0) return "No data yet";
+    if (insights.concentrationScore < 25) return "Balanced mix";
+    if (insights.concentrationScore < 45) return "Moderately concentrated";
+    return "Highly concentrated";
+  }, [insights.concentrationScore, totalNotes]);
+
+  const topCategoryDisplay =
+    totalNotes === 0
+      ? "No data yet"
+      : `Top: ${getCategoryLabel(insights.dominantCategory)} (${Math.round(insights.topCategoryShare)}%)`;
 
   const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ name: string; value: number }> }) => {
     if (active && payload && payload.length) {
@@ -92,52 +83,34 @@ export function CategoryInsightsCard({ session }: CategoryInsightsCardProps) {
         <CardDescription>Distribution and patterns across feedback types</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Pie Charts Row */}
-        <div className="grid grid-cols-2 gap-6">
-          {/* Bug to Feature Ratio */}
-          <div className="space-y-3">
-            <div className="text-sm font-medium text-muted-foreground text-center">Bug vs Feature</div>
-            <div className="h-48">
-              {bugFeatureData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={bugFeatureData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {bugFeatureData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip content={<CustomTooltip />} />
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
-                  No data
-                </div>
-              )}
-            </div>
-            <div className="flex justify-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#fb7088]" />
-                <span>Bugs: {insights.totalByCategory.bug}</span>
+        {/* Top Row: Concentration & Overall Distribution */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+          {/* Category Concentration */}
+          <div className="space-y-3 lg:col-span-5">
+            <div className="text-sm font-medium text-muted-foreground text-center">Category Concentration</div>
+            <div className="rounded-lg border border-border p-4 space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Concentration Score</span>
+                <span className="font-semibold">{Math.round(insights.concentrationScore)}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-[#6e71f1]" />
-                <span>Features: {insights.totalByCategory.feature}</span>
+              <div className="h-2 bg-secondary/50 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all"
+                  style={{ width: `${Math.min(insights.concentrationScore, 100)}%` }}
+                />
+              </div>
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>{concentrationLabel}</span>
+                <span>{topCategoryDisplay}</span>
               </div>
             </div>
-            <p className="text-xs text-muted-foreground text-center">{getInterpretation()}</p>
+            <p className="text-xs text-muted-foreground text-center">
+              Higher score means feedback is clustered in fewer categories; lower score means a balanced mix.
+            </p>
           </div>
 
           {/* Overall Distribution */}
-          <div className="space-y-3">
+          <div className="space-y-3 lg:col-span-7">
             <div className="text-sm font-medium text-muted-foreground text-center">All Categories</div>
             <div className="h-48">
               {distributionData.length > 0 ? (
@@ -169,7 +142,9 @@ export function CategoryInsightsCard({ session }: CategoryInsightsCardProps) {
               {(Object.entries(insights.totalByCategory) as [NoteCategory, number][]).map(([category, count]) => (
                 <div key={category} className="flex items-center gap-1.5">
                   <div className={`w-3 h-3 rounded-full ${categoryColorClasses[category].bg}`} />
-                  <span className="text-muted-foreground">{count}</span>
+                  <span className="text-muted-foreground">
+                    {getCategoryLabel(category)}: {count}
+                  </span>
                 </div>
               ))}
             </div>
