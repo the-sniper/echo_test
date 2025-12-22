@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
+// ...existing code...
+import { usePollRealtime } from "@/hooks/usePollRealtime";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -133,12 +135,21 @@ export default function TesterSessionPage({
     checkAdmin();
   }, []);
 
+
+  const fetchSessionCallback = useCallback(fetchSession, [token]);
+
   useEffect(() => {
-    fetchSession();
+    fetchSessionCallback();
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
-    }; /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [token]);
+    };
+  }, [fetchSessionCallback]);
+
+  // Subscribe to poll question changes (realtime)
+  usePollRealtime({
+    sessionId: data?.session?.id || "",
+    onPollChange: fetchSessionCallback,
+  });
 
   async function fetchSession() {
     try {
