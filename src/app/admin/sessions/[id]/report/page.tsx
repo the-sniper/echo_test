@@ -2,16 +2,28 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Download, Loader2, FileText, BarChart3 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, FileText, BarChart3, TrendingUp, Activity, AlertTriangle, ClipboardList, Filter, X, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { formatDate, getCategoryLabel } from "@/lib/utils";
-import type { SessionWithDetails, NoteWithDetails, NoteCategory } from "@/types";
+import { AnalyticsTab } from "@/components/analytics";
+import type { SessionWithDetails, NoteWithDetails, NoteCategory, PollResponse, PollQuestion, Scene, Tester } from "@/types";
 
 export default function ReportPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const [session, setSession] = useState<SessionWithDetails | null>(null);
+  const [pollResponses, setPollResponses] = useState<PollResponse[]>([]);
+  const [pollSceneFilter, setPollSceneFilter] = useState<string>("all");
+  const [pollTesterFilter, setPollTesterFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
 
@@ -23,7 +35,25 @@ export default function ReportPage({ params }: { params: { id: string } }) {
     finally { setLoading(false); }
   }, [id]);
 
-  useEffect(() => { fetchSession(); }, [fetchSession]);
+  const fetchPollResponses = useCallback(async function() {
+    try {
+      const response = await fetch(`/api/sessions/${id}/poll-responses`);
+      if (!response.ok) return;
+      const data = await response.json();
+      const normalized: PollResponse[] = (data || []).map((resp: any) => ({
+        id: resp.id,
+        poll_question_id: resp.poll_question_id,
+        tester_id: resp.tester_id,
+        selected_options: resp.selected_options || [],
+        created_at: resp.created_at,
+      }));
+      setPollResponses(normalized);
+    } catch (error) {
+      console.error("Error fetching poll responses:", error);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchSession(); fetchPollResponses(); }, [fetchSession, fetchPollResponses]);
 
   async function generatePDF() {
     if (!session) return;
@@ -70,52 +100,307 @@ export default function ReportPage({ params }: { params: { id: string } }) {
         <Button onClick={generatePDF} disabled={generating}>{generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}Export PDF</Button>
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5" />Summary</CardTitle><CardDescription>Completed on {session.ended_at ? formatDate(session.ended_at) : "N/A"}</CardDescription></CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{stats?.total || 0}</div><div className="text-sm text-muted-foreground">Total Notes</div></div>
-            <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.testers?.length || 0}</div><div className="text-sm text-muted-foreground">Testers</div></div>
-            <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.scenes?.length || 0}</div><div className="text-sm text-muted-foreground">Scenes</div></div>
-            <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold text-red-500">{stats?.categoryBreakdown.bug || 0}</div><div className="text-sm text-muted-foreground">Bugs Found</div></div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="report" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="report" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Report
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-2">
+            <TrendingUp className="w-4 h-4" />
+            Analytics
+          </TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader><CardTitle>Category Breakdown</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {Object.entries(stats?.categoryBreakdown || {}).map(([category, count]) => (
-              <div key={category} className="flex items-center gap-3">
-                <Badge variant={category as "bug" | "feature" | "ux" | "performance" | "secondary"} className="w-32 justify-center">{getCategoryLabel(category)}</Badge>
-                <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${stats?.total ? (count / stats.total) * 100 : 0}%` }} /></div>
-                <span className="text-sm font-mono w-8 text-right">{count}</span>
+        <TabsContent value="report" className="space-y-6">
+          <Card>
+            <CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5" />Summary</CardTitle><CardDescription>Completed on {session.ended_at ? formatDate(session.ended_at) : "N/A"}</CardDescription></CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{stats?.total || 0}</div><div className="text-sm text-muted-foreground">Total Notes</div></div>
+                <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.testers?.length || 0}</div><div className="text-sm text-muted-foreground">Testers</div></div>
+                <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.scenes?.length || 0}</div><div className="text-sm text-muted-foreground">Scenes</div></div>
+                <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold text-red-500">{stats?.categoryBreakdown.bug || 0}</div><div className="text-sm text-muted-foreground">Bugs Found</div></div>
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
 
-      {Object.entries(notesByScene).map(([sceneName, notes]) => (
-        <Card key={sceneName}>
-          <CardHeader><div className="flex items-center justify-between"><CardTitle>{sceneName}</CardTitle><Badge variant="secondary">{notes.length} notes</Badge></div></CardHeader>
-          <CardContent className="space-y-4">
-            {notes.map((note) => (
-              <div key={note.id} className="p-4 rounded-lg border border-border">
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex items-center gap-2"><Badge variant={note.category as "bug" | "feature" | "ux" | "performance" | "secondary"}>{getCategoryLabel(note.category)}</Badge>{note.auto_classified && <span className="text-xs text-muted-foreground">(auto)</span>}</div>
-                  <span className="text-xs text-muted-foreground">{note.tester?.first_name} {note.tester?.last_name} • {formatDate(note.created_at)}</span>
-                </div>
-                <p className="text-sm">{note.edited_transcript || note.raw_transcript || "No transcript"}</p>
+          <Card>
+            <CardHeader><CardTitle>Category Breakdown</CardTitle></CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {Object.entries(stats?.categoryBreakdown || {}).map(([category, count]) => (
+                  <div key={category} className="flex items-center gap-3">
+                    <Badge variant={category as "bug" | "feature" | "ux" | "performance" | "secondary"} className="w-32 justify-center">{getCategoryLabel(category)}</Badge>
+                    <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden"><div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${stats?.total ? (count / stats.total) * 100 : 0}%` }} /></div>
+                    <span className="text-sm font-mono w-8 text-right">{count}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+            </CardContent>
+          </Card>
 
-      {(!session.notes || session.notes.length === 0) && <Card><CardContent className="py-16 text-center"><FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" /><h3 className="font-semibold mb-2">No Notes Recorded</h3></CardContent></Card>}
+          {/* Stability Issues */}
+          {session.issue_options && session.issue_options.length > 0 && (() => {
+            const issueStats: Record<string, { count: number; testers: string[] }> = {};
+            session.issue_options.forEach((issue: string) => {
+              issueStats[issue] = { count: 0, testers: [] };
+            });
+            session.testers?.forEach((tester: Tester) => {
+              const testerIssues = tester.reported_issues || [];
+              testerIssues.forEach((issue: string) => {
+                if (issueStats[issue]) {
+                  issueStats[issue].count++;
+                  issueStats[issue].testers.push(`${tester.first_name} ${tester.last_name}`);
+                }
+              });
+            });
+            const totalTesters = session.testers?.length || 0;
+            const reportedIssues = Object.entries(issueStats).filter(([, s]) => s.count > 0);
+
+            if (reportedIssues.length === 0) return null;
+
+            return (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-amber-500" />
+                    Stability Issues
+                  </CardTitle>
+                  <CardDescription>General issues reported during testing</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {reportedIssues
+                      .sort((a, b) => b[1].count - a[1].count)
+                      .map(([issue, stats]) => {
+                        const percentage = totalTesters ? (stats.count / totalTesters) * 100 : 0;
+                        const getColorClasses = () => {
+                          if (percentage < 50) return { icon: "text-green-500", bar: "bg-green-500 dark:bg-green-400/60" };
+                          if (percentage <= 80) return { icon: "text-amber-500", bar: "bg-amber-500 dark:bg-amber-400/60" };
+                          return { icon: "text-red-500", bar: "bg-red-500 dark:bg-red-400/60" };
+                        };
+                        const colors = getColorClasses();
+                        
+                        const getIcon = () => {
+                          if (percentage < 50) return <CheckCircle className={`w-4 h-4 ${colors.icon}`} />;
+                          if (percentage <= 80) return <AlertTriangle className={`w-4 h-4 ${colors.icon}`} />;
+                          return <XCircle className={`w-4 h-4 ${colors.icon}`} />;
+                        };
+
+                        return (
+                          <div key={issue} className="p-3 rounded-lg bg-secondary/30 border border-border">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                {getIcon()}
+                                <span className="text-sm font-medium">{issue}</span>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <div className="w-16 h-1.5 bg-secondary/50 rounded-full overflow-hidden">
+                                  <div
+                                    className={`h-full ${colors.bar} rounded-full`}
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                </div>
+                                <span className="text-xs text-muted-foreground">{stats.count}/{totalTesters}</span>
+                              </div>
+                            </div>
+                            <p className="text-xs text-muted-foreground/70 mt-1.5 ml-7">
+                              {stats.testers.join(", ")}
+                            </p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {/* Poll Results */}
+          {(() => {
+            const allPollQuestions: (PollQuestion & { sceneName: string; sceneId: string })[] = [];
+            session.scenes?.forEach((scene: Scene) => {
+              if (scene.poll_questions && scene.poll_questions.length > 0) {
+                scene.poll_questions.forEach((q: PollQuestion) => {
+                  allPollQuestions.push({ ...q, sceneName: scene.name, sceneId: scene.id });
+                });
+              }
+            });
+
+            if (allPollQuestions.length === 0) return null;
+
+            const filteredPollQuestions = pollSceneFilter === "all" 
+              ? allPollQuestions 
+              : allPollQuestions.filter(q => q.sceneId === pollSceneFilter);
+
+            const totalTesters = session.testers?.length || 0;
+            const hasPollFilters = pollSceneFilter !== "all" || pollTesterFilter !== "all";
+
+            const clearPollFilters = () => {
+              setPollSceneFilter("all");
+              setPollTesterFilter("all");
+            };
+
+            return (
+              <Card>
+                <CardHeader>
+                  <div className="flex flex-col gap-4">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <ClipboardList className="w-5 h-5 text-blue-500" />
+                        Poll Results
+                      </CardTitle>
+                      {hasPollFilters && (
+                        <Button variant="ghost" size="sm" onClick={clearPollFilters} className="text-xs">
+                          <X className="w-3 h-3 mr-1" />
+                          Clear filters
+                        </Button>
+                      )}
+                    </div>
+                    <CardDescription>Responses from {totalTesters} tester{totalTesters !== 1 ? "s" : ""}</CardDescription>
+                    
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">Filter:</span>
+                      </div>
+
+                      {session.scenes && session.scenes.length > 0 && (
+                        <Select value={pollSceneFilter} onValueChange={setPollSceneFilter}>
+                          <SelectTrigger className="h-8 w-[130px] text-xs">
+                            <SelectValue placeholder="Scene" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Scenes</SelectItem>
+                            {session.scenes.map((scene: Scene) => (
+                              <SelectItem key={scene.id} value={scene.id}>{scene.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+
+                      {session.testers && session.testers.length > 0 && (
+                        <Select value={pollTesterFilter} onValueChange={setPollTesterFilter}>
+                          <SelectTrigger className="h-8 w-[150px] text-xs">
+                            <SelectValue placeholder="Tester" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="all">All Testers</SelectItem>
+                            {session.testers.map((tester: Tester) => (
+                              <SelectItem key={tester.id} value={tester.id}>{tester.first_name} {tester.last_name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {filteredPollQuestions.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <ClipboardList className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p className="text-sm">No poll questions match the selected filters</p>
+                      <Button variant="ghost" size="sm" onClick={clearPollFilters} className="mt-2">
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    filteredPollQuestions.map((question) => {
+                      const questionResponses = pollResponses.filter(r => {
+                        if (r.poll_question_id !== question.id) return false;
+                        if (pollTesterFilter !== "all" && r.tester_id !== pollTesterFilter) return false;
+                        return true;
+                      });
+                      const optionCounts: Record<string, { count: number; testers: string[] }> = {};
+                      question.options.forEach(opt => {
+                        optionCounts[opt] = { count: 0, testers: [] };
+                      });
+                      
+                      questionResponses.forEach(response => {
+                        const tester = session.testers?.find((t: Tester) => t.id === response.tester_id);
+                        const testerName = tester ? `${tester.first_name} ${tester.last_name}` : "Unknown";
+                        response.selected_options.forEach(opt => {
+                          if (optionCounts[opt]) {
+                            optionCounts[opt].count++;
+                            optionCounts[opt].testers.push(testerName);
+                          }
+                        });
+                      });
+
+                      const respondedCount = questionResponses.length;
+                      const displayTotalTesters = pollTesterFilter !== "all" ? 1 : totalTesters;
+
+                      return (
+                        <div key={question.id} className="space-y-3">
+                          <div>
+                            <div className="flex items-center gap-1.5 mb-1">
+                              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">{question.sceneName}</Badge>
+                              {question.required && <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-5">Required</Badge>}
+                            </div>
+                            <p className="font-medium">{question.question}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {respondedCount}/{displayTotalTesters} responded • {question.question_type === "radio" ? "Single choice" : "Multiple choice"}
+                            </p>
+                          </div>
+                          <div className="space-y-2">
+                            {question.options.map((option) => {
+                              const stats = optionCounts[option];
+                              const percentage = respondedCount > 0 ? (stats.count / respondedCount) * 100 : 0;
+                              return (
+                                <div key={option} className="p-3 rounded-lg bg-secondary/30 border border-border">
+                                  <div className="flex items-center justify-between mb-1">
+                                    <span className="text-sm">{option}</span>
+                                    <span className="text-sm font-medium">{stats.count} ({Math.round(percentage)}%)</span>
+                                  </div>
+                                  <div className="h-2 bg-secondary/50 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-blue-500 dark:bg-blue-400/60 rounded-full transition-all duration-500"
+                                      style={{ width: `${percentage}%` }}
+                                    />
+                                  </div>
+                                  {stats.testers.length > 0 && (
+                                    <p className="text-xs text-muted-foreground/70 mt-1.5">
+                                      {stats.testers.join(", ")}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })()}
+
+          {Object.entries(notesByScene).map(([sceneName, notes]) => (
+            <Card key={sceneName}>
+              <CardHeader><div className="flex items-center justify-between"><CardTitle>{sceneName}</CardTitle><Badge variant="secondary">{notes.length} notes</Badge></div></CardHeader>
+              <CardContent className="space-y-4">
+                {notes.map((note) => (
+                  <div key={note.id} className="p-4 rounded-lg border border-border">
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-center gap-2"><Badge variant={note.category as "bug" | "feature" | "ux" | "performance" | "secondary"}>{getCategoryLabel(note.category)}</Badge>{note.auto_classified && <span className="text-xs text-muted-foreground">(auto)</span>}</div>
+                      <span className="text-xs text-muted-foreground">{note.tester?.first_name} {note.tester?.last_name} • {formatDate(note.created_at)}</span>
+                    </div>
+                    <p className="text-sm">{note.edited_transcript || note.raw_transcript || "No transcript"}</p>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ))}
+
+          {(!session.notes || session.notes.length === 0) && <Card><CardContent className="py-16 text-center"><FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" /><h3 className="font-semibold mb-2">No Notes Recorded</h3></CardContent></Card>}
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <AnalyticsTab session={session} pollResponses={pollResponses} sessionId={id} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
-
