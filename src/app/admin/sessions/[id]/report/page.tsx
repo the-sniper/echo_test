@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, Download, Loader2, FileText, BarChart3, TrendingUp, Activity, AlertTriangle, ClipboardList, Filter, X, CheckCircle, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,10 @@ export default function ReportPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const [session, setSession] = useState<SessionWithDetails | null>(null);
   const [pollResponses, setPollResponses] = useState<PollResponse[]>([]);
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sceneFilter, setSceneFilter] = useState<string>("all");
+  const [testerFilter, setTesterFilter] = useState<string>("all");
+  const [groupBy, setGroupBy] = useState<"scene" | "tester" | "category">("scene");
   const [pollSceneFilter, setPollSceneFilter] = useState<string>("all");
   const [pollTesterFilter, setPollTesterFilter] = useState<string>("all");
   const [loading, setLoading] = useState(true);
@@ -82,13 +86,61 @@ export default function ReportPage({ params }: { params: { id: string } }) {
     return { total: session.notes.length, categoryBreakdown };
   }
 
+  const filteredNotes = useMemo(() => {
+    if (!session?.notes) return [];
+    return session.notes.filter((note) => {
+      if (categoryFilter !== "all" && note.category !== categoryFilter) return false;
+      if (sceneFilter !== "all" && note.scene_id !== sceneFilter) return false;
+      if (testerFilter !== "all" && note.tester_id !== testerFilter) return false;
+      return true;
+    });
+  }, [session?.notes, categoryFilter, sceneFilter, testerFilter]);
+
+  const hasActiveFilters = categoryFilter !== "all" || sceneFilter !== "all" || testerFilter !== "all";
+
+  function clearFilters() {
+    setCategoryFilter("all");
+    setSceneFilter("all");
+    setTesterFilter("all");
+  }
+
+  const groupedNotes = useMemo(() => {
+    const groups: Record<string, { label: string; notes: NoteWithDetails[] }> = {};
+    
+    filteredNotes.forEach((note) => {
+      let key: string;
+      let label: string;
+      
+      switch (groupBy) {
+        case "tester":
+          key = note.tester_id;
+          label = note.tester ? `${note.tester.first_name} ${note.tester.last_name}` : "Unknown Tester";
+          break;
+        case "category":
+          key = note.category;
+          label = getCategoryLabel(note.category);
+          break;
+        case "scene":
+        default:
+          key = note.scene_id;
+          label = note.scene?.name || "Unknown Scene";
+          break;
+      }
+      
+      if (!groups[key]) {
+        groups[key] = { label, notes: [] };
+      }
+      groups[key].notes.push(note);
+    });
+    
+    return groups;
+  }, [filteredNotes, groupBy]);
+
+  const stats = getStats();
+
   if (loading) return <div className="animate-pulse space-y-4"><div className="h-8 w-48 bg-secondary rounded" /><div className="h-64 bg-secondary rounded-xl" /></div>;
   if (!session) return <div className="text-center py-16"><h2 className="text-xl font-semibold mb-2">Session not found</h2><Link href="/admin"><Button variant="ghost">Back</Button></Link></div>;
   if (session.status !== "completed") return <div className="text-center py-16"><FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" /><h2 className="text-xl font-semibold mb-2">Report Not Available</h2><p className="text-muted-foreground mb-4">Reports only available for completed sessions.</p><Link href={`/admin/sessions/${id}`}><Button variant="ghost">Back to Session</Button></Link></div>;
-
-  const stats = getStats();
-  const notesByScene: Record<string, NoteWithDetails[]> = {};
-  session.notes?.forEach((note: NoteWithDetails) => { const sceneName = note.scene?.name || "Unknown"; if (!notesByScene[sceneName]) notesByScene[sceneName] = []; notesByScene[sceneName].push(note); });
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -116,11 +168,12 @@ export default function ReportPage({ params }: { params: { id: string } }) {
           <Card>
             <CardHeader><CardTitle className="flex items-center gap-2"><BarChart3 className="w-5 h-5" />Summary</CardTitle><CardDescription>Completed on {session.ended_at ? formatDate(session.ended_at) : "N/A"}</CardDescription></CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{stats?.total || 0}</div><div className="text-sm text-muted-foreground">Total Notes</div></div>
                 <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.testers?.length || 0}</div><div className="text-sm text-muted-foreground">Testers</div></div>
                 <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold">{session.scenes?.length || 0}</div><div className="text-sm text-muted-foreground">Scenes</div></div>
                 <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold text-red-500">{stats?.categoryBreakdown.bug || 0}</div><div className="text-sm text-muted-foreground">Bugs Found</div></div>
+                <div className="p-4 rounded-lg bg-secondary/30"><div className="text-3xl font-bold text-amber-500">{session.testers?.reduce((total: number, tester: Tester) => total + (tester.reported_issues?.length || 0), 0) || 0}</div><div className="text-sm text-muted-foreground">Stability Issues</div></div>
               </div>
             </CardContent>
           </Card>
@@ -377,15 +430,115 @@ export default function ReportPage({ params }: { params: { id: string } }) {
             );
           })()}
 
-          {Object.entries(notesByScene).map(([sceneName, notes]) => (
-            <Card key={sceneName}>
-              <CardHeader><div className="flex items-center justify-between"><CardTitle>{sceneName}</CardTitle><Badge variant="secondary">{notes.length} notes</Badge></div></CardHeader>
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle>Notes ({filteredNotes.length}{hasActiveFilters ? ` of ${session.notes?.length || 0}` : ""})</CardTitle>
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters} className="text-xs">
+                      <X className="w-3 h-3 mr-1" />
+                      Clear filters
+                    </Button>
+                  )}
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <Filter className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Filter:</span>
+                  </div>
+                  
+                  <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                    <SelectTrigger className="h-8 w-[130px] text-xs">
+                      <SelectValue placeholder="Category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Categories</SelectItem>
+                      <SelectItem value="bug">Bug</SelectItem>
+                      <SelectItem value="feature">Feature</SelectItem>
+                      <SelectItem value="ux">UX</SelectItem>
+                      <SelectItem value="performance">Performance</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {session.scenes && session.scenes.length > 0 && (
+                    <Select value={sceneFilter} onValueChange={setSceneFilter}>
+                      <SelectTrigger className="h-8 w-[130px] text-xs">
+                        <SelectValue placeholder="Scene" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Scenes</SelectItem>
+                        {session.scenes.map((scene: Scene) => (
+                          <SelectItem key={scene.id} value={scene.id}>{scene.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  {session.testers && session.testers.length > 0 && (
+                    <Select value={testerFilter} onValueChange={setTesterFilter}>
+                      <SelectTrigger className="h-8 w-[150px] text-xs">
+                        <SelectValue placeholder="Tester" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Testers</SelectItem>
+                        {session.testers.map((tester: Tester) => (
+                          <SelectItem key={tester.id} value={tester.id}>{tester.first_name} {tester.last_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+
+                  <div className="flex items-center gap-2 ml-auto">
+                    <span className="text-sm text-muted-foreground">Group by:</span>
+                    <Select value={groupBy} onValueChange={(v) => setGroupBy(v as "scene" | "tester" | "category")}>
+                      <SelectTrigger className="h-8 w-[120px] text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="scene">Scene</SelectItem>
+                        <SelectItem value="tester">Tester</SelectItem>
+                        <SelectItem value="category">Category</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+          </Card>
+
+          {Object.entries(groupedNotes).map(([key, { label, notes }]) => (
+            <Card key={key}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    {groupBy === "category" && (
+                      <Badge variant={key as "bug" | "feature" | "ux" | "performance" | "secondary"}>{label}</Badge>
+                    )}
+                    {groupBy !== "category" && label}
+                  </CardTitle>
+                  <Badge variant="secondary">{notes.length} note{notes.length !== 1 ? "s" : ""}</Badge>
+                </div>
+              </CardHeader>
               <CardContent className="space-y-4">
                 {notes.map((note) => (
                   <div key={note.id} className="p-4 rounded-lg border border-border">
                     <div className="flex items-start justify-between mb-2">
-                      <div className="flex items-center gap-2"><Badge variant={note.category as "bug" | "feature" | "ux" | "performance" | "secondary"}>{getCategoryLabel(note.category)}</Badge>{note.auto_classified && <span className="text-xs text-muted-foreground">(auto)</span>}</div>
-                      <span className="text-xs text-muted-foreground">{note.tester?.first_name} {note.tester?.last_name} • {formatDate(note.created_at)}</span>
+                      <div className="flex items-center gap-2">
+                        {groupBy !== "category" && (
+                          <Badge variant={note.category as "bug" | "feature" | "ux" | "performance" | "secondary"}>{getCategoryLabel(note.category)}</Badge>
+                        )}
+                        {groupBy !== "scene" && (
+                          <Badge variant="outline" className="text-xs">{note.scene?.name}</Badge>
+                        )}
+                        {note.auto_classified && <span className="text-xs text-muted-foreground">(auto)</span>}
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {groupBy !== "tester" && `${note.tester?.first_name} ${note.tester?.last_name} • `}
+                        {formatDate(note.created_at)}
+                      </span>
                     </div>
                     <p className="text-sm">{note.edited_transcript || note.raw_transcript || "No transcript"}</p>
                   </div>
@@ -394,7 +547,21 @@ export default function ReportPage({ params }: { params: { id: string } }) {
             </Card>
           ))}
 
-          {(!session.notes || session.notes.length === 0) && <Card><CardContent className="py-16 text-center"><FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" /><h3 className="font-semibold mb-2">No Notes Recorded</h3></CardContent></Card>}
+          {filteredNotes.length === 0 && (
+            <Card>
+              <CardContent className="py-16 text-center">
+                <FileText className="w-16 h-16 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <h3 className="font-semibold mb-2">
+                  {hasActiveFilters ? "No Notes Match Filters" : "No Notes Recorded"}
+                </h3>
+                {hasActiveFilters && (
+                  <Button variant="ghost" onClick={clearFilters} className="mt-2">
+                    Clear filters
+                  </Button>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="analytics">
