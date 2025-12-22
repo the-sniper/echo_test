@@ -390,22 +390,20 @@ export default function TesterSessionPage({
       {/* Show admin mobile navigation when logged in as admin (hide bottom nav to not overlap with tester FAB) */}
       {isAdmin && <AdminMobileHeader hideBottomNav />}
       
-      {/* Header with logo - using AdminMobileHeader pattern, show on all screens for testers */}
-      {!isAdmin && (
-        <header className="fixed top-0 left-0 right-0 h-16 border-b border-border/50 bg-card/80 glass z-50">
-          <div className="flex items-center justify-between h-full px-4">
-            <Link href="/" className="flex items-center gap-3">
-              <Image src="/logo.svg" alt="AirLog" width={90} height={24} className="dark:hidden" />
-              <Image src="/logo-dark.svg" alt="AirLog" width={90} height={24} className="hidden dark:block" />
-            </Link>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-            </div>
+      {/* Header with logo - always show on tester page */}
+      <header className="fixed top-0 left-0 right-0 h-16 border-b border-border/50 bg-card/80 glass z-50">
+        <div className="flex items-center justify-between h-full px-4">
+          <Link href="/" className="flex items-center gap-3">
+            <Image src="/logo.svg" alt="AirLog" width={90} height={24} className="dark:hidden" />
+            <Image src="/logo-dark.svg" alt="AirLog" width={90} height={24} className="hidden dark:block" />
+          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
           </div>
-        </header>
-      )}
+        </div>
+      </header>
       
-      <div className={`min-h-screen gradient-mesh flex flex-col ${isAdmin ? "pt-16 md:pt-0" : "pt-16"}`}>
+      <div className="min-h-screen gradient-mesh flex flex-col pt-16">
         {/* Session Info Bar */}
         <div className="border-b border-border bg-card/80 glass sticky top-16 z-40">
           <div className="container mx-auto px-4 h-14 flex items-center justify-between">
@@ -452,7 +450,7 @@ export default function TesterSessionPage({
                 <SelectTrigger className="w-full h-12 text-base">
                   <SelectValue placeholder="Select a scene" />
                 </SelectTrigger>
-                <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                <SelectContent className="w-[var(--radix-select-trigger-width)] z-50">
                   {session.scenes?.map((s: Scene) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.name}
