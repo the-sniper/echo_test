@@ -121,7 +121,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       )
     );
 
-    const successful = results.filter((r) => r.status === "fulfilled").length;
+    const successfulResults = results
+      .map((r, idx) => ({ r, tester: testersWithEmail[idx] }))
+      .filter((entry) => entry.r.status === "fulfilled");
+    const successful = successfulResults.length;
     const failed = results.filter((r) => r.status === "rejected");
 
     // Log failures for debugging
@@ -131,10 +134,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       }
     });
 
+    // Mark report_sent_at for successful testers
+    if (successfulResults.length > 0) {
+      const sentIds = successfulResults.map((entry) => entry.tester.id);
+      await supabase
+        .from("testers")
+        .update({ report_sent_at: new Date().toISOString() })
+        .in("id", sentIds);
+    }
+
     return NextResponse.json({
       success: true,
       sent: successful,
       failed: failed.length,
+      sentTesterIds: successfulResults.map((entry) => entry.tester.id),
       sessionId: id,
       shareToken,
     });

@@ -1579,6 +1579,17 @@ export default function SessionDetailPage({
 
       if (res.ok) {
         const result = await res.json();
+        const sentTesterIds: string[] = result.sentTesterIds || [];
+        // Update local session testers to reflect report_sent_at
+        if (sentTesterIds.length > 0 && session?.testers) {
+          const now = new Date().toISOString();
+          setSession({
+            ...session,
+            testers: session.testers.map((t) =>
+              sentTesterIds.includes(t.id) ? { ...t, report_sent_at: now } : t
+            ),
+          });
+        }
         // Clear selection after successful send
         setSelectedReportTesterIds(new Set());
         toast({
@@ -2166,11 +2177,20 @@ export default function SessionDetailPage({
                             {t.email && (
                               <span className="text-xs text-muted-foreground truncate">{t.email}</span>
                             )}
-                          {t.invite_sent_at && (
-                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
-                              <Mail className="w-3 h-3" />
-                              Invited
-                            </span>
+                          {session.status === "completed" ? (
+                            t.report_sent_at ? (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
+                                <Mail className="w-3 h-3" />
+                                Report emailed
+                              </span>
+                            ) : null
+                          ) : (
+                            t.invite_sent_at && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
+                                <Mail className="w-3 h-3" />
+                                Invited
+                              </span>
+                            )
                           )}
                         </div>
                         {session.status !== "completed" && (
