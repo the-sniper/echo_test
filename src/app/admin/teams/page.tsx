@@ -1,11 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Plus, Users, Trash2, Pencil, Loader2, ChevronRight, UserPlus, Link2, Copy, Check, RefreshCw } from "lucide-react";
+import { Plus, Users, Trash2, Pencil, Loader2, ChevronRight, UserPlus, Link2, Copy, Check, RefreshCw, MoreVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import type { Team, TeamMember, TeamWithMembers } from "@/types";
 
 interface TeamWithCount extends Team {
@@ -249,7 +250,7 @@ export default function TeamsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 hidden sm:inline-flex"
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditTeamName(team.name);
@@ -261,7 +262,7 @@ export default function TeamsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hidden sm:inline-flex"
                         onClick={(e) => {
                           e.stopPropagation();
                           setDeleteTeamDialog({ open: true, team });
@@ -269,6 +270,46 @@ export default function TeamsPage() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 sm:hidden"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Team options"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={4}
+                          className="w-32 sm:hidden"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditTeamName(team.name);
+                              setEditTeamDialog({ open: true, team });
+                            }}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTeamDialog({ open: true, team });
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <ChevronRight className="w-4 h-4 text-muted-foreground" />
                     </div>
                   </div>
@@ -281,12 +322,9 @@ export default function TeamsPage() {
         {/* Team Details */}
         <Card>
           <CardHeader className="space-y-4">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">
-                {selectedTeam ? selectedTeam.name : "Team Members"}
-              </CardTitle>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               {selectedTeam && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 justify-end sm:order-2">
                   <Button
                     size="icon"
                     variant="ghost"
@@ -301,6 +339,9 @@ export default function TeamsPage() {
                   </Button>
                 </div>
               )}
+              <CardTitle className="text-lg sm:order-1">
+                {selectedTeam ? selectedTeam.name : "Team Members"}
+              </CardTitle>
             </div>
             {/* Invite Link Section */}
             {selectedTeam?.invite_token && (
@@ -377,7 +418,7 @@ export default function TeamsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 hidden sm:inline-flex"
                         onClick={() => {
                           setMemberForm({
                             first_name: member.first_name,
@@ -392,11 +433,55 @@ export default function TeamsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 text-destructive hidden sm:inline-flex"
                         onClick={() => setDeleteMemberDialog({ open: true, member })}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 sm:hidden"
+                            onClick={(e) => e.stopPropagation()}
+                            aria-label="Member options"
+                          >
+                            <MoreVertical className="w-4 h-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={4}
+                          className="w-32 sm:hidden"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setMemberForm({
+                                first_name: member.first_name,
+                                last_name: member.last_name,
+                                email: member.email ?? "",
+                              });
+                              setEditMemberDialog({ open: true, member });
+                            }}
+                          >
+                            <Pencil className="w-4 h-4 mr-2" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="text-destructive focus:text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteMemberDialog({ open: true, member });
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 ))}

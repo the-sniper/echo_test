@@ -1,19 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, Users2, LogOut, UserPlus, Menu, Bell, Settings, Moon, Sun } from "lucide-react";
+import { LayoutGrid, Users2, LogOut, UserPlus, Menu, Bell, Settings, X, ChevronRight, Sun, Moon, Clock } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useTheme } from "@/components/theme-provider";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -119,6 +113,8 @@ export function AdminMobileHeader({ hideBottomNav = false }: { hideBottomNav?: b
   const pathname = usePathname();
   const router = useRouter();
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   const isActive = (href: string) => {
     if (href === "/admin") {
@@ -132,6 +128,28 @@ export function AdminMobileHeader({ hideBottomNav = false }: { hideBottomNav?: b
     router.push("/admin/login");
     router.refresh();
   };
+
+  const cycleTheme = () => {
+    if (theme === "auto") {
+      setTheme("light");
+    } else if (theme === "light") {
+      setTheme("dark");
+    } else {
+      setTheme("auto");
+    }
+  };
+
+  useEffect(() => {
+    if (drawerOpen) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [drawerOpen]);
 
   return (
     <>
@@ -153,52 +171,144 @@ export function AdminMobileHeader({ hideBottomNav = false }: { hideBottomNav?: b
             </Button>
             
             {/* Hamburger Menu */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="text-muted-foreground hover:text-foreground"
-                >
-                  <Menu className="w-5 h-5" strokeWidth={1.75} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem asChild>
-                  <Link href="/admin" className="flex items-center gap-2 cursor-pointer">
-                    <LayoutGrid className="w-4 h-4" />
-                    <span>Sessions</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/admin/teams" className="flex items-center gap-2 cursor-pointer">
-                    <Users2 className="w-4 h-4" />
-                    <span>Teams</span>
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <Settings className="w-4 h-4" />
-                      <span>Theme</span>
-                    </div>
-                    <ThemeToggle />
-                  </div>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem 
-                  className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
-                  onClick={() => setShowLogoutDialog(true)}
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  <span>Sign Out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button 
+              variant="ghost" 
+              size="icon" 
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="w-5 h-5" strokeWidth={1.75} />
+            </Button>
           </div>
         </div>
       </header>
+
+      {/* Mobile Drawer */}
+      <div
+        className={`fixed inset-0 z-50 md:hidden transition-all duration-300 ${
+          drawerOpen ? "pointer-events-auto" : "pointer-events-none"
+        }`}
+        aria-hidden={!drawerOpen}
+      >
+        <div
+          className={`absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-300 ${
+            drawerOpen ? "opacity-100" : "opacity-0"
+          }`}
+          onClick={() => setDrawerOpen(false)}
+        />
+        <div
+          role="dialog"
+          aria-modal="true"
+          className={`absolute inset-y-0 right-0 w-[86%] max-w-sm bg-card shadow-2xl border-l border-border/60 rounded-l-3xl flex flex-col transition-transform duration-300 ease-in-out ${
+            drawerOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
+            <div className="flex items-center gap-3">
+              <Image src="/logo.svg" alt="AirLog" width={96} height={24} className="dark:hidden" />
+              <Image src="/logo-dark.svg" alt="AirLog" width={96} height={24} className="hidden dark:block" />
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => setDrawerOpen(false)}
+            >
+              <X className="w-5 h-5" strokeWidth={1.75} />
+              <span className="sr-only">Close menu</span>
+            </Button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+            <div className="space-y-2">
+              <Link
+                href="/admin"
+                onClick={() => setDrawerOpen(false)}
+                className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-colors ${
+                  isActive("/admin")
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-transparent bg-muted/30 text-foreground hover:border-border"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive("/admin") ? "bg-primary text-primary-foreground" : "bg-background border border-border/60 text-muted-foreground"}`}>
+                    <LayoutGrid className="w-5 h-5" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-medium">Sessions</p>
+                    <p className="text-xs text-muted-foreground">Browse and manage sessions</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
+
+              <Link
+                href="/admin/teams"
+                onClick={() => setDrawerOpen(false)}
+                className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-colors ${
+                  isActive("/admin/teams")
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-transparent bg-muted/30 text-foreground hover:border-border"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive("/admin/teams") ? "bg-primary text-primary-foreground" : "bg-background border border-border/60 text-muted-foreground"}`}>
+                    <Users2 className="w-5 h-5" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-medium">Teams</p>
+                    <p className="text-xs text-muted-foreground">Invite and collaborate</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
+            </div>
+            <div className="flex-1" />
+          </div>
+
+          <div className="px-5 pb-6 space-y-3">
+            <div className="rounded-xl border border-border/60 bg-muted/10">
+              <button
+                type="button"
+                onClick={cycleTheme}
+                className="flex w-full items-center justify-between text-left px-4 py-3 hover:bg-background/60 transition-colors rounded-xl"
+                aria-label="Toggle theme"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-background border border-border/60 flex items-center justify-center text-muted-foreground">
+                    <Settings className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="font-medium">Theme</p>
+                    <p className="text-xs text-muted-foreground">Light or dark mode</p>
+                  </div>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-background border border-border/60 flex items-center justify-center text-muted-foreground">
+                  {theme === "auto" && <Clock className="w-4 h-4" strokeWidth={1.75} />}
+                  {theme === "light" && <Sun className="w-4 h-4" strokeWidth={1.75} />}
+                  {theme === "dark" && <Moon className="w-4 h-4" strokeWidth={1.75} />}
+                </div>
+              </button>
+            </div>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start gap-3 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => {
+                setDrawerOpen(false);
+                setShowLogoutDialog(true);
+              }}
+            >
+              <LogOut className="w-5 h-5" strokeWidth={1.75} />
+              <div className="text-left">
+                <p className="font-medium">Sign Out</p>
+                <p className="text-xs text-muted-foreground">End this session securely</p>
+              </div>
+            </Button>
+          </div>
+        </div>
+      </div>
 
       {/* Bottom Navigation Bar */}
       {!hideBottomNav && (
