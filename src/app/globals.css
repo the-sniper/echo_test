@@ -141,6 +141,11 @@ html {
   overflow-x: hidden;
 }
 
+/* Prevent layout shift when Radix UI locked-scroll is active */
+body[data-scroll-locked] {
+  padding-right: 0px !important;
+}
+
 /* Gradient mesh - Light mode */
 .gradient-mesh {
   background: 

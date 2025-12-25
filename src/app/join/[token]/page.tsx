@@ -1,9 +1,8 @@
 "use client";
 import { useEffect, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 // ...existing code...
 import { usePollRealtime } from "@/hooks/usePollRealtime";
-import Link from "next/link";
-import Image from "next/image";
 import {
   Mic,
   AlertCircle,
@@ -21,7 +20,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ThemeToggle } from "@/components/theme-toggle";
 import {
   Select,
   SelectContent,
@@ -33,7 +31,7 @@ import { VoiceRecorder } from "@/components/voice-recorder";
 import { TextNoteInput } from "@/components/text-note-input";
 import { NotesList } from "@/components/notes-list";
 import { AdminMobileHeader } from "@/components/admin-sidebar";
-import { TesterNotifications } from "@/components/tester-notifications";
+import { TesterHeader } from "@/components/tester-header";
 import type { SessionWithScenes, Tester, Scene, Note, PollQuestion, PollResponse } from "@/types";
 
 interface JoinData {
@@ -379,6 +377,14 @@ export default function TesterSessionPage({
     (s: Scene) => s.id === selectedScene
   );
 
+  // Convert tester data to user format for the header
+  const user = tester ? {
+    id: tester.user_id || tester.id,
+    first_name: tester.first_name,
+    last_name: tester.last_name,
+    email: tester.email || "",
+  } : null;
+
   // Calculate poll status for current scene
   const pollQuestions = currentScene?.poll_questions || [];
   const hasPollQuestions = pollQuestions.length > 0;
@@ -391,57 +397,40 @@ export default function TesterSessionPage({
       {/* Show admin mobile navigation when logged in as admin (hide bottom nav to not overlap with tester FAB) */}
       {isAdmin && <AdminMobileHeader hideBottomNav />}
       
-      {/* Header with logo - always show on tester page */}
-      <header className="fixed top-0 left-0 right-0 h-16 border-b border-border/50 bg-card/80 glass z-50">
-        <div className="flex items-center justify-between h-full px-4">
-          <Link href="/" className="flex items-center gap-3">
-            <Image src="/logo.svg" alt="AirLog" width={90} height={24} className="dark:hidden" />
-            <Image src="/logo-dark.svg" alt="AirLog" width={90} height={24} className="hidden dark:block" />
-          </Link>
-          <div className="flex items-center gap-2">
-            <TesterNotifications
-              session={session}
-              tester={tester}
-              onRealtimeUpdate={fetchSessionCallback}
-            />
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      {/* Tester Header */}
+      <TesterHeader user={user} />
       
-      <div className="min-h-screen gradient-mesh flex flex-col pt-16">
+      <div className="min-h-screen gradient-mesh flex flex-col">
         {/* Session Info Bar */}
-        <div className="border-b border-border bg-card/80 glass sticky top-16 z-40">
-          <div className="container mx-auto px-4 h-14 flex items-center justify-between">
-            {/* Left: Session info */}
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
-                <Mic className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="font-semibold truncate">{session.name}</h1>
-                <p className="text-sm text-muted-foreground truncate">
-                  {tester.first_name} {tester.last_name}
-                </p>
-              </div>
+        <div className="border-b border-border bg-card/80 glass sticky top-16 z-40 h-14 flex items-center justify-between px-4">
+          {/* Left: Session info */}
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center shrink-0">
+              <Mic className="w-4 h-4 text-primary-foreground" />
             </div>
-            
-            {/* Right: Status + Actions */}
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setHasLeft(true)}
-                className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              >
-                <LogOut className="w-4 h-4 mr-1.5" />
-                <span className="hidden sm:inline">Leave</span>
-              </Button>
+            <div className="min-w-0">
+              <h1 className="font-semibold truncate">{session.name}</h1>
+              <p className="text-sm text-muted-foreground truncate">
+                {tester.first_name} {tester.last_name}
+              </p>
             </div>
+          </div>
+          
+          {/* Right: Status + Actions */}
+          <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-green-500/10">
+              <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+              <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
+            </div>
+            {/* <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setHasLeft(true)}
+              className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
+            >
+              <LogOut className="w-4 h-4 mr-1.5" />
+              <span className="hidden sm:inline">Leave</span>
+            </Button> */}
           </div>
         </div>
 
