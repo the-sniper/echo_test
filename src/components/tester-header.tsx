@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TesterNotifications } from "@/components/tester-notifications";
-import { Menu, X, LayoutGrid, ChevronRight, Settings, Users2, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, LayoutGrid, ChevronRight, Settings, Users2, LogOut, ChevronDown, User } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
@@ -61,9 +61,6 @@ export function TesterHeader({ user }: TesterHeaderProps) {
             <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
               Dashboard
             </Link>
-            <Link href="/sessions" className="text-sm text-muted-foreground hover:text-foreground">
-              Sessions
-            </Link>
           </nav>
           <TesterNotifications userId={user?.id} />
           <div className="hidden md:block">
@@ -74,24 +71,44 @@ export function TesterHeader({ user }: TesterHeaderProps) {
                   <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/sessions"
+                    className="flex h-10 items-center gap-3 px-3 py-2 hover:bg-muted data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
+                  >
+                    <Users2 className="w-4 h-4" />
+                    <span className="text-sm">Sessions</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/profile"
+                    className="flex h-10 items-center gap-3 px-3 py-2 hover:bg-muted data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
+                  >
+                    <User className="w-4 h-4" />
+                    <span className="text-sm">Profile</span>
+                  </Link>
+                </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="flex h-10 items-center justify-between gap-2 px-3 py-2 data-[highlighted]:bg-muted data-[highlighted]:text-foreground cursor-pointer"
+                  className="flex h-10 items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-muted data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
                   onSelect={(e) => {
                     e.preventDefault();
                     cycleTheme();
                   }}
                 >
-                  <span className="text-sm">Theme</span>
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm">Theme</span>
+                  </div>
                   <ThemeToggle />
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="flex h-10 items-center px-3 py-2 data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
-                  onClick={async () => {
-                    setShowLogoutDialog(true);
-                  }}
+                  className="flex h-10 items-center gap-3 px-3 py-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                  onClick={() => setShowLogoutDialog(true)}
                 >
-                  Logout
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Logout</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -176,6 +193,23 @@ export function TesterHeader({ user }: TesterHeaderProps) {
                   <div>
                     <p className="font-medium">Sessions</p>
                     <p className="text-xs text-muted-foreground">Browse and manage sessions</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
+
+              <Link
+                href="/profile"
+                className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-colors border-border/60 bg-muted/20 hover:border-border"
+                onClick={() => setDrawerOpen(false)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-muted/40 text-muted-foreground flex items-center justify-center">
+                    <User className="w-6 h-6" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-medium">Profile</p>
+                    <p className="text-xs text-muted-foreground">Manage your account</p>
                   </div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
