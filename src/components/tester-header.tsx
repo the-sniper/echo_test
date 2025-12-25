@@ -7,7 +7,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TesterNotifications } from "@/components/tester-notifications";
-import { Menu, X, LayoutGrid, ChevronRight, Settings, Users2, LogOut, ChevronDown } from "lucide-react";
+import { Menu, X, LayoutGrid, ChevronRight, Settings, Users2, LogOut, ChevronDown, User } from "lucide-react";
 import { useTheme } from "@/components/theme-provider";
 import {
   DropdownMenu,
@@ -61,9 +61,6 @@ export function TesterHeader({ user }: TesterHeaderProps) {
             <Link href="/dashboard" className="text-sm text-muted-foreground hover:text-foreground">
               Dashboard
             </Link>
-            <Link href="/sessions" className="text-sm text-muted-foreground hover:text-foreground">
-              Sessions
-            </Link>
           </nav>
           <TesterNotifications userId={user?.id} />
           <div className="hidden md:block">
@@ -74,24 +71,44 @@ export function TesterHeader({ user }: TesterHeaderProps) {
                   <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem 
-                  className="flex h-10 items-center justify-between gap-2 px-3 py-2 data-[highlighted]:bg-muted data-[highlighted]:text-foreground cursor-pointer"
+              <DropdownMenuContent align="end" className="w-52">
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/sessions"
+                    className="flex h-10 items-center gap-3 px-3 py-2 hover:bg-muted data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
+                  >
+                    <Users2 className="w-4 h-4" />
+                    <span className="text-sm">Sessions</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link
+                    href="/profile"
+                    className="flex h-10 items-center gap-3 px-3 py-2 hover:bg-muted data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
+                  >
+                    <User className="w-4 h-4" />
+                    <span className="text-sm">Profile</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="flex h-10 items-center justify-between gap-3 px-3 py-2 cursor-pointer hover:bg-muted data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
                   onSelect={(e) => {
                     e.preventDefault();
                     cycleTheme();
                   }}
                 >
-                  <span className="text-sm">Theme</span>
+                  <div className="flex items-center gap-3">
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm">Theme</span>
+                  </div>
                   <ThemeToggle />
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  className="flex h-10 items-center px-3 py-2 data-[highlighted]:bg-muted data-[highlighted]:text-foreground"
-                  onClick={async () => {
-                    setShowLogoutDialog(true);
-                  }}
+                  className="flex h-10 items-center gap-3 px-3 py-2 text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
+                  onClick={() => setShowLogoutDialog(true)}
                 >
-                  Logout
+                  <LogOut className="w-4 h-4" />
+                  <span className="text-sm">Logout</span>
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -110,22 +127,19 @@ export function TesterHeader({ user }: TesterHeaderProps) {
 
       {/* Mobile drawer */}
       <div
-        className={`fixed inset-0 z-50 transition-all duration-300 sm:hidden ${
-          drawerOpen ? "pointer-events-auto" : "pointer-events-none"
-        }`}
+        className={`fixed inset-0 z-50 transition-all duration-300 sm:hidden ${drawerOpen ? "pointer-events-auto" : "pointer-events-none"
+          }`}
       >
         <div
-          className={`absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-300 ${
-            drawerOpen ? "opacity-100" : "opacity-0"
-          }`}
+          className={`absolute inset-0 bg-background/70 backdrop-blur-md transition-opacity duration-300 ${drawerOpen ? "opacity-100" : "opacity-0"
+            }`}
           onClick={() => setDrawerOpen(false)}
         />
         <div
           role="dialog"
           aria-modal="true"
-          className={`absolute inset-y-0 right-0 w-[86%] max-w-sm bg-card shadow-2xl border-l border-border/60 rounded-l-3xl flex flex-col transition-transform duration-300 ease-in-out ${
-            drawerOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+          className={`absolute inset-y-0 right-0 w-[86%] max-w-sm bg-card shadow-2xl border-l border-border/60 rounded-l-3xl flex flex-col transition-transform duration-300 ease-in-out ${drawerOpen ? "translate-x-0" : "translate-x-full"
+            }`}
         >
           <div className="flex items-center justify-between px-5 py-4 border-b border-border/50">
             <div className="flex items-center gap-3">
@@ -183,12 +197,29 @@ export function TesterHeader({ user }: TesterHeaderProps) {
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground" />
               </Link>
+
+              <Link
+                href="/profile"
+                className="flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-colors border-border/60 bg-muted/20 hover:border-border"
+                onClick={() => setDrawerOpen(false)}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-muted/40 text-muted-foreground flex items-center justify-center">
+                    <User className="w-6 h-6" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-medium">Profile</p>
+                    <p className="text-xs text-muted-foreground">Manage your account</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
             </div>
 
             <div className="flex-1" />
 
             <div className="space-y-3">
-              <div 
+              <div
                 className="rounded-xl border border-border/60 bg-muted/10 px-4 py-3 flex items-center justify-between cursor-pointer active:scale-[0.98] transition-all"
                 onClick={cycleTheme}
               >
