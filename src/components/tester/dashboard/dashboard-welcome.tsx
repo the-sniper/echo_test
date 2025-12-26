@@ -76,10 +76,7 @@ export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps)
                     </p>
                 </div>
 
-                {/* Decorative sparkle icon */}
-                <div className="hidden lg:flex absolute top-4 right-4 p-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-                    <Sparkles className="w-5 h-5 text-white/70" />
-                </div>
+
             </div>
 
             {/* Bottom accent line */}
