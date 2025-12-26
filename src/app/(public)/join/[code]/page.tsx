@@ -222,10 +222,11 @@ export default function TesterSessionPage({
     onPollChange: fetchSessionCallback,
   });
 
-  async function fetchSession() {
+  async function fetchSession(rejoin = false) {
     try {
       // Use POST to join session - this creates/finds tester and returns session data
-      const res = await fetch(`/api/sessions/join/${sessionCode}`, {
+      const url = `/api/sessions/join/${sessionCode}${rejoin ? "?rejoin=true" : ""}`;
+      const res = await fetch(url, {
         method: "POST",
         cache: "no-store",
       });
@@ -252,11 +253,21 @@ export default function TesterSessionPage({
         return;
       }
       // Session is active - start/continue polling to detect when it ends
+      // Session is active - start/continue polling to detect when it ends
       if (!pollIntervalRef.current) {
-        pollIntervalRef.current = setInterval(fetchSession, 5000); // Poll every 5 seconds while active
+        pollIntervalRef.current = setInterval(() => fetchSession(false), 5000); // Poll every 5 seconds while active
       }
+
       setError(null);
       setData(result);
+
+      // Check if user has left
+      if (result.tester?.left_at) {
+        setHasLeft(true);
+      } else {
+        setHasLeft(false);
+      }
+
       // Only set default scene on first load, not on subsequent polls
       if (result.session.scenes?.length > 0 && !sceneInitializedRef.current) {
         setSelectedScene(result.session.scenes[0].id);
@@ -531,7 +542,7 @@ export default function TesterSessionPage({
             <div className="flex flex-col gap-2">
               <Button onClick={() => {
                 setHasLeft(false);
-                fetchSession(); // This will call the join API which clears left_at
+                fetchSession(true); // Explicity request rejoin to clear left_at
               }}>
                 Continue Testing
               </Button>
@@ -599,20 +610,32 @@ export default function TesterSessionPage({
               variant="outline"
               size="sm"
               onClick={async () => {
+                if (!data?.tester?.invite_token) {
+                  alert("Error: Missing invite token");
+                  return;
+                }
+                const token = data.tester.invite_token;
+                console.log("Attempting to leave with token:", token);
+
                 try {
-                  const res = await fetch(`/api/leave/${data.tester.invite_token}`, {
+                  const res = await fetch(`/api/leave/${token}`, {
                     method: "POST",
+                    cache: "no-store",
                   });
+
                   if (res.ok) {
+                    console.log("Leave successful");
+                    // Force a re-fetch of session data to ensure cleaner state
                     setHasLeft(true);
                   } else {
-                    // If already left or other error, still show the left screen
-                    setHasLeft(true);
+                    const err = await res.json().catch(() => ({}));
+                    console.error("Leave failed:", res.status, err);
+                    alert(`Failed to leave session: ${err.error || "Unknown error"}`);
+                    // Do NOT setHasLeft(true) here, so user sees it failed
                   }
                 } catch (error) {
                   console.error("Error leaving session:", error);
-                  // Still show left screen even if API call fails
-                  setHasLeft(true);
+                  alert("Network error when trying to leave session");
                 }
               }}
               className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"

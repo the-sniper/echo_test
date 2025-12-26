@@ -111,8 +111,10 @@ export async function POST(
                 .eq("id", tester.id);
         }
 
-        // Clear left_at if rejoining
-        if (tester.left_at) {
+        // Clear left_at if rejoining explicitly
+        const shouldRejoin = req.nextUrl.searchParams.get("rejoin") === "true";
+
+        if (tester.left_at && shouldRejoin) {
             const { data: updatedTester } = await supabase
                 .from("testers")
                 .update({ left_at: null })

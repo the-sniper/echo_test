@@ -799,11 +799,11 @@ export default function SessionDetailPage({
     fetchTeams();
     fetchPollResponses();
 
-    // Auto-poll every 10 seconds to see testers joining/leaving
+    // Auto-poll every 45 seconds to see testers joining/leaving
     const pollInterval = setInterval(() => {
       fetchSession();
       fetchPollResponses();
-    }, 10000);
+    }, 45000);
 
     return () => clearInterval(pollInterval);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
@@ -2106,8 +2106,9 @@ export default function SessionDetailPage({
                     size="icon"
                     className="h-8 w-8"
                     onClick={refreshSession}
+                    disabled={loading || refreshingSession}
                   >
-                    <RefreshCw className="w-4 h-4" />
+                    <RefreshCw className={`w-4 h-4 ${refreshingSession ? "animate-spin" : ""}`} />
                   </Button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
