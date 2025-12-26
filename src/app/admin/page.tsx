@@ -1,153 +1,190 @@
 "use client";
-import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Plus, CalendarDays, Users2, FileText, Play, Square, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { formatDate, getStatusLabel } from "@/lib/utils";
-import type { Session } from "@/types";
 
-interface SessionWithCounts extends Session { scenes: { count: number }[]; testers: { count: number }[]; notes: { count: number }[]; }
+import { useEffect, useState, useCallback } from "react";
+import {
+  Users2,
+  FileText,
+  Play,
+  LayoutDashboard,
+  Bug,
+  Sparkles,
+  RefreshCw,
+  MessageSquare,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { DashboardStats } from "@/lib/admin-analytics";
+import {
+  StatCard,
+  SessionStatusChart,
+  NotesCategoryChart,
+  SessionsOverTimeChart,
+  RecentActivity,
+  TesterLeaderboard,
+  ActiveSessionsBanner,
+} from "@/components/admin/dashboard";
 
 export default function AdminDashboard() {
-  const [sessions, setSessions] = useState<SessionWithCounts[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; session: SessionWithCounts | null }>({ open: false, session: null });
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [timeFilter, setTimeFilter] = useState<"7d" | "30d" | "all">("30d");
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => { fetchSessions(); }, []);
-  async function fetchSessions() { try { const res = await fetch("/api/sessions"); if (res.ok) setSessions(await res.json()); } finally { setLoading(false); } }
-  async function handleStartSession(id: string) { await fetch(`/api/sessions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "start" }) }); fetchSessions(); }
-  async function handleEndSession(id: string) { await fetch(`/api/sessions/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "end" }) }); fetchSessions(); }
-  async function handleDeleteSession() { if (!deleteDialog.session) return; await fetch(`/api/sessions/${deleteDialog.session.id}`, { method: "DELETE" }); setDeleteDialog({ open: false, session: null }); fetchSessions(); }
+  const fetchDashboard = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/dashboard?timeFilter=${timeFilter}`);
+      if (res.ok) {
+        setDashboardStats(await res.json());
+      }
+    } catch (error) {
+      console.error("Failed to fetch dashboard:", error);
+    } finally {
+      setDashboardLoading(false);
+    }
+  }, [timeFilter]);
 
-  if (loading) return (
-    <div className="animate-pulse space-y-6">
-      {/* Header skeleton */}
-      <div className="h-16 rounded-lg bg-muted/30" />
-      {/* Session cards skeleton */}
-      <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-52 rounded-2xl bg-secondary/30" />
+  useEffect(() => {
+    fetchDashboard();
+  }, [fetchDashboard]);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    setDashboardLoading(true);
+    await fetchDashboard();
+    setRefreshing(false);
+  }
+
+  // Dashboard skeleton
+  const DashboardSkeleton = () => (
+    <div className="space-y-6 animate-pulse">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="h-28 rounded-xl bg-secondary/30" />
         ))}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="h-72 rounded-xl bg-secondary/30" />
+        <div className="h-72 rounded-xl bg-secondary/30" />
+        <div className="h-72 rounded-xl bg-secondary/30" />
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2 h-80 rounded-xl bg-secondary/30" />
+        <div className="h-80 rounded-xl bg-secondary/30" />
       </div>
     </div>
   );
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Test Sessions</h1>
-          <p className="text-muted-foreground mt-1">Manage your testing sessions</p>
+      {/* Dashboard Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
+            <LayoutDashboard className="h-5 w-5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground">
+              Overview of your testing activity
+            </p>
+          </div>
         </div>
-        <Link href="/admin/sessions/new">
-          <Button>
-            <Plus className="w-4 h-4" strokeWidth={2} />
-            New Session
+        <div className="flex items-center gap-3">
+          {/* Time Filter Tabs */}
+          <Tabs
+            value={timeFilter}
+            onValueChange={(v) => setTimeFilter(v as typeof timeFilter)}
+            className="w-auto"
+          >
+            <TabsList className="h-9">
+              <TabsTrigger value="7d" className="text-xs px-3">7 days</TabsTrigger>
+              <TabsTrigger value="30d" className="text-xs px-3">30 days</TabsTrigger>
+              <TabsTrigger value="all" className="text-xs px-3">All time</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="shrink-0 h-9 w-9"
+          >
+            <RefreshCw
+              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+            />
           </Button>
-        </Link>
+        </div>
       </div>
 
-      {sessions.length === 0 ? (
-        <Card className="border-dashed border-border/60">
-          <CardContent className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-2xl bg-secondary/50 flex items-center justify-center mb-5">
-              <FileText className="w-8 h-8 text-muted-foreground/50" strokeWidth={1.5} />
-            </div>
-            <h3 className="font-semibold mb-2">No sessions yet</h3>
-            <p className="text-sm text-muted-foreground mb-6">Create your first testing session to get started</p>
-            <Link href="/admin/sessions/new">
-              <Button>
-                <Plus className="w-4 h-4" strokeWidth={2} />
-                Create Session
-              </Button>
-            </Link>
+      {/* Dashboard Content */}
+      {dashboardLoading ? (
+        <DashboardSkeleton />
+      ) : dashboardStats ? (
+        <div className="space-y-6">
+          {/* Active Sessions Banner */}
+          {dashboardStats.activeSessionsList.length > 0 && (
+            <ActiveSessionsBanner sessions={dashboardStats.activeSessionsList} />
+          )}
+
+          {/* Stat Cards */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <StatCard
+              title="Total Sessions"
+              value={dashboardStats.totalSessions}
+              icon={<FileText className="h-5 w-5" />}
+              variant="primary"
+            />
+            <StatCard
+              title="Active Sessions"
+              value={dashboardStats.activeSessions}
+              icon={<Play className="h-5 w-5" />}
+              variant="success"
+            />
+            <StatCard
+              title="Completed"
+              value={dashboardStats.completedSessions}
+              icon={<Sparkles className="h-5 w-5" />}
+              variant="default"
+            />
+            <StatCard
+              title="Total Testers"
+              value={dashboardStats.totalTesters}
+              icon={<Users2 className="h-5 w-5" />}
+              variant="default"
+            />
+            <StatCard
+              title="Total Notes"
+              value={dashboardStats.totalNotes}
+              icon={<MessageSquare className="h-5 w-5" />}
+              variant="default"
+            />
+          </div>
+
+          {/* Charts Row 1 */}
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <SessionStatusChart data={dashboardStats.sessionsByStatus} />
+            <NotesCategoryChart data={dashboardStats.notesByCategory} />
+            <TesterLeaderboard data={dashboardStats.testerLeaderboard} />
+          </div>
+
+          {/* Charts Row 2 */}
+          <div className="grid gap-4 lg:grid-cols-3">
+            <SessionsOverTimeChart data={dashboardStats.sessionsOverTime} />
+            <RecentActivity notes={dashboardStats.recentNotes} />
+          </div>
+        </div>
+      ) : (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <LayoutDashboard className="h-12 w-12 text-muted-foreground/30 mb-4" />
+            <p className="text-muted-foreground">No data to display yet</p>
+            <p className="text-sm text-muted-foreground/70">
+              Create your first session to see dashboard statistics
+            </p>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {sessions.map((s) => (
-            <Card key={s.id} className="group hover:border-primary/30 hover:shadow-glow transition-all duration-300">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg font-semibold">{s.name}</CardTitle>
-                    {s.build_version && (
-                      <p className="text-xs text-muted-foreground font-mono bg-secondary/50 px-2 py-0.5 rounded-md inline-block">
-                        {s.build_version}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant={s.status as "draft" | "active" | "completed"}>{getStatusLabel(s.status)}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                  <CalendarDays className="w-4 h-4" strokeWidth={1.75} />
-                  {formatDate(s.created_at)}
-                </div>
-                <div className="flex items-center gap-5 text-sm">
-                  <span className="flex items-center gap-1.5">
-                    <Users2 className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
-                    <span className="text-foreground/80">{s.testers?.[0]?.count || 0}</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <FileText className="w-4 h-4 text-muted-foreground" strokeWidth={1.75} />
-                    <span className="text-foreground/80">{s.notes?.[0]?.count || 0}</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 pt-2">
-                  <Link href={`/admin/sessions/${s.id}`} className="flex-1">
-                    <Button variant="secondary" className="w-full" size="sm">Manage</Button>
-                  </Link>
-                  {s.status === "draft" && (
-                    <Button size="sm" onClick={() => handleStartSession(s.id)}>
-                      <Play className="w-4 h-4" strokeWidth={2} />
-                      Start
-                    </Button>
-                  )}
-                  {s.status === "active" && (
-                    <Button variant="destructive" size="sm" onClick={() => handleEndSession(s.id)}>
-                      <Square className="w-4 h-4" strokeWidth={2} />
-                      End
-                    </Button>
-                  )}
-                  {s.status === "completed" && (
-                    <Link href={`/admin/sessions/${s.id}/report`}>
-                      <Button variant="outline" size="sm">View Report</Button>
-                    </Link>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-muted-foreground hover:text-destructive"
-                    onClick={() => setDeleteDialog({ open: true, session: s })}
-                  >
-                    <Trash2 className="w-4 h-4" strokeWidth={1.75} />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       )}
-
-      <Dialog open={deleteDialog.open} onOpenChange={(o) => setDeleteDialog({ open: o, session: null })}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Session</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete &quot;{deleteDialog.session?.name}&quot;? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setDeleteDialog({ open: false, session: null })}>Cancel</Button>
-            <Button variant="destructive" onClick={handleDeleteSession}>Delete</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

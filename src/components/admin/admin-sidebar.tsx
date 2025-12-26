@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { LayoutGrid, Users2, LogOut, UserPlus, Menu, Bell, Settings, X, ChevronRight, Sun, Moon, Clock } from "lucide-react";
+import { LayoutDashboard, FolderKanban, Users2, LogOut, UserPlus, Menu, Bell, Settings, X, ChevronRight, Sun, Moon, Clock } from "lucide-react";
 import { ThemeToggle } from "@/components/common/theme-toggle";
 import { useTheme } from "@/components/common/theme-provider";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,12 @@ export function AdminSidebar() {
   // Check if a nav item is active
   const isActive = (href: string) => {
     if (href === "/admin") {
-      // Sessions is active for /admin and /admin/sessions/*
-      return pathname === "/admin" || pathname.startsWith("/admin/sessions");
+      // Dashboard is only active for exactly /admin
+      return pathname === "/admin";
+    }
+    if (href === "/admin/sessions") {
+      // Sessions is active for /admin/sessions/*
+      return pathname.startsWith("/admin/sessions");
     }
     return pathname.startsWith(href);
   };
@@ -54,7 +58,17 @@ export function AdminSidebar() {
               : "text-muted-foreground hover:bg-secondary hover:text-foreground"
               }`}
           >
-            <LayoutGrid className="w-4 h-4" strokeWidth={1.75} />
+            <LayoutDashboard className="w-4 h-4" strokeWidth={1.75} />
+            Dashboard
+          </Link>
+          <Link
+            href="/admin/sessions"
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${isActive("/admin/sessions")
+              ? "bg-primary/10 text-primary"
+              : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+              }`}
+          >
+            <FolderKanban className="w-4 h-4" strokeWidth={1.75} />
             Sessions
           </Link>
           <Link
@@ -116,7 +130,12 @@ export function AdminMobileHeader({ hideBottomNav = false, hideTopHeader = false
 
   const isActive = (href: string) => {
     if (href === "/admin") {
-      return pathname === "/admin" || pathname.startsWith("/admin/sessions");
+      // Dashboard is only active for exactly /admin
+      return pathname === "/admin";
+    }
+    if (href === "/admin/sessions") {
+      // Sessions is active for /admin/sessions/*
+      return pathname.startsWith("/admin/sessions");
     }
     return pathname.startsWith(href);
   };
@@ -229,7 +248,27 @@ export function AdminMobileHeader({ hideBottomNav = false, hideTopHeader = false
               >
                 <div className="flex items-center gap-3">
                   <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive("/admin") ? "bg-primary text-primary-foreground" : "bg-background border border-border/60 text-muted-foreground"}`}>
-                    <LayoutGrid className="w-5 h-5" strokeWidth={1.75} />
+                    <LayoutDashboard className="w-5 h-5" strokeWidth={1.75} />
+                  </div>
+                  <div>
+                    <p className="font-medium">Dashboard</p>
+                    <p className="text-xs text-muted-foreground">Overview and analytics</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </Link>
+
+              <Link
+                href="/admin/sessions"
+                onClick={() => setDrawerOpen(false)}
+                className={`flex items-center justify-between gap-3 rounded-xl px-4 py-3 border transition-colors ${isActive("/admin/sessions")
+                  ? "border-primary/40 bg-primary/10 text-primary"
+                  : "border-transparent bg-muted/30 text-foreground hover:border-border"
+                  }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isActive("/admin/sessions") ? "bg-primary text-primary-foreground" : "bg-background border border-border/60 text-muted-foreground"}`}>
+                    <FolderKanban className="w-5 h-5" strokeWidth={1.75} />
                   </div>
                   <div>
                     <p className="font-medium">Sessions</p>
@@ -319,27 +358,19 @@ export function AdminMobileHeader({ hideBottomNav = false, hideTopHeader = false
                 : "text-muted-foreground hover:text-foreground"
                 }`}
             >
-              <LayoutGrid className="w-6 h-6" strokeWidth={1.5} />
-              <span className="text-[10px] font-medium">Sessions</span>
+              <LayoutDashboard className="w-6 h-6" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">Dashboard</span>
             </Link>
 
-            {/* Prominent Join Button */}
             <Link
-              href="/join"
-              className="flex flex-col items-center -mt-8"
+              href="/admin/sessions"
+              className={`flex flex-col items-center gap-1 py-2 transition-all ${isActive("/admin/sessions")
+                ? "text-primary"
+                : "text-muted-foreground hover:text-foreground"
+                }`}
             >
-              <div className="relative group">
-                {/* Glow effect */}
-                <div className="absolute inset-0 bg-primary/40 rounded-full blur-xl group-hover:blur-2xl transition-all" />
-                {/* Outer ring */}
-                <div className="relative w-16 h-16 rounded-full bg-gradient-to-b from-primary to-primary/80 p-[3px] shadow-xl shadow-primary/25">
-                  {/* Inner button */}
-                  <div className="w-full h-full rounded-full bg-primary flex items-center justify-center">
-                    <UserPlus className="w-7 h-7 text-primary-foreground" strokeWidth={2} />
-                  </div>
-                </div>
-              </div>
-              <span className="text-[10px] font-semibold text-primary mt-1">Join</span>
+              <FolderKanban className="w-6 h-6" strokeWidth={1.5} />
+              <span className="text-[10px] font-medium">Sessions</span>
             </Link>
 
             <Link

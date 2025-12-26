@@ -17,9 +17,11 @@ import {
   Check,
   X,
   ClipboardList,
+  LogIn,
+  UserPlus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -94,9 +96,10 @@ function FormattedDescription({ text }: { text: string }) {
 export default function TesterSessionPage({
   params,
 }: {
-  params: { token: string };
+  params: { code: string };
 }) {
-  const { token } = params;
+  const { code } = params;
+  const sessionCode = code.toUpperCase();
   const [data, setData] = useState<JoinData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<{ message: string; type: string } | null>(
@@ -119,6 +122,9 @@ export default function TesterSessionPage({
   const sceneInitializedRef = useRef(false);
   const issuesInitializedRef = useRef(false);
   const pollInitializedRef = useRef(false);
+  const [showAuthLanding, setShowAuthLanding] = useState(false);
+  const [sessionInfo, setSessionInfo] = useState<{ sessionName: string; description: string | null } | null>(null);
+  const authCheckDoneRef = useRef(false);
 
   useEffect(() => {
     // Check if user is admin
@@ -139,25 +145,76 @@ export default function TesterSessionPage({
       try {
         const res = await fetch("/api/users/me", { cache: "no-store" });
         if (res.ok) {
-          const userData = await res.json();
-          setLoggedInUser(userData);
+          const data = await res.json();
+          // API returns { user: {...} }
+          setLoggedInUser(data.user);
+          authCheckDoneRef.current = true;
+          return data.user;
         }
       } catch {
         // Not logged in
       }
+      authCheckDoneRef.current = true;
+      return null;
     }
-    checkLoggedInUser();
-  }, []);
+
+    // Validate session code and check auth
+    async function initializePage() {
+      const loggedInUserData = await checkLoggedInUser();
+
+      // First, validate the session code
+      try {
+        const res = await fetch(`/api/sessions/join/${sessionCode}`, {
+          cache: "no-store",
+        });
+        if (res.ok) {
+          const info = await res.json();
+          setSessionInfo({
+            sessionName: info.sessionName,
+            description: info.description,
+          });
+        } else {
+          const result = await res.json();
+          if (res.status === 410) {
+            setError({ message: result.error || "Session has ended", type: "ended" });
+          } else {
+            setError({ message: result.error || "Invalid session code", type: "error" });
+          }
+          setLoading(false);
+          return;
+        }
+      } catch {
+        setError({ message: "Failed to validate session code", type: "error" });
+        setLoading(false);
+        return;
+      }
+
+      if (!loggedInUserData) {
+        // Not logged in - show auth landing
+        setShowAuthLanding(true);
+        setLoading(false);
+        return;
+      }
+
+      // User is logged in - proceed to join session
+      // The fetchSession effect will handle loading the session
+    }
+
+    initializePage();
+  }, [sessionCode]);
 
 
-  const fetchSessionCallback = useCallback(fetchSession, [token]);
+  const fetchSessionCallback = useCallback(fetchSession, [sessionCode]);
 
   useEffect(() => {
+    // Only fetch session if user is logged in (auth check done and we have a user)
+    if (!authCheckDoneRef.current || !loggedInUser) return;
+
     fetchSessionCallback();
     return () => {
       if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
     };
-  }, [fetchSessionCallback]);
+  }, [fetchSessionCallback, loggedInUser]);
 
   // Subscribe to poll question changes (realtime)
   usePollRealtime({
@@ -165,10 +222,12 @@ export default function TesterSessionPage({
     onPollChange: fetchSessionCallback,
   });
 
-  async function fetchSession() {
+  async function fetchSession(rejoin = false) {
     try {
-      // Add cache-busting to prevent browser caching
-      const res = await fetch(`/api/join/${token}?t=${Date.now()}`, {
+      // Use POST to join session - this creates/finds tester and returns session data
+      const url = `/api/sessions/join/${sessionCode}${rejoin ? "?rejoin=true" : ""}`;
+      const res = await fetch(url, {
+        method: "POST",
         cache: "no-store",
       });
       const result = await res.json();
@@ -194,11 +253,21 @@ export default function TesterSessionPage({
         return;
       }
       // Session is active - start/continue polling to detect when it ends
+      // Session is active - start/continue polling to detect when it ends
       if (!pollIntervalRef.current) {
-        pollIntervalRef.current = setInterval(fetchSession, 5000); // Poll every 5 seconds while active
+        pollIntervalRef.current = setInterval(() => fetchSession(false), 5000); // Poll every 5 seconds while active
       }
+
       setError(null);
       setData(result);
+
+      // Check if user has left
+      if (result.tester?.left_at) {
+        setHasLeft(true);
+      } else {
+        setHasLeft(false);
+      }
+
       // Only set default scene on first load, not on subsequent polls
       if (result.session.scenes?.length > 0 && !sceneInitializedRef.current) {
         setSelectedScene(result.session.scenes[0].id);
@@ -347,6 +416,71 @@ export default function TesterSessionPage({
         </div>
       </div>
     );
+
+  // Auth Landing Screen - shown when user is not logged in but session is valid
+  if (showAuthLanding && sessionInfo)
+    return (
+      <div className="min-h-screen gradient-mesh flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-primary/5 rounded-full blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-accent/5 rounded-full blur-3xl" />
+        </div>
+
+        <div className="w-full max-w-md relative">
+          <Card className="glass border-border/50 shadow-2xl shadow-primary/5 backdrop-blur-xl">
+            <CardHeader className="text-center pb-2">
+              <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-primary flex items-center justify-center mb-4 shadow-lg shadow-primary/25">
+                <Mic className="w-8 h-8 text-primary-foreground" strokeWidth={1.75} />
+              </div>
+              <CardTitle className="text-2xl font-bold">Join Session</CardTitle>
+              <CardDescription className="text-muted-foreground">
+                Sign in to start testing
+              </CardDescription>
+            </CardHeader>
+
+            <CardContent className="space-y-6">
+              {/* Session Info */}
+              <div className="p-4 rounded-xl bg-secondary/50 space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>Session</span>
+                </div>
+                <p className="font-semibold text-lg">{sessionInfo.sessionName}</p>
+                <p className="text-xs text-muted-foreground font-mono">Code: {sessionCode}</p>
+              </div>
+
+              {/* Auth Options */}
+              <div className="space-y-3">
+                <p className="text-sm text-center text-muted-foreground">
+                  Sign in or create an account to continue
+                </p>
+
+                <div className="grid gap-3">
+                  <Link href={`/login?callbackUrl=${encodeURIComponent(`/join/${sessionCode}`)}`}>
+                    <Button className="w-full h-12" size="lg">
+                      <LogIn className="w-5 h-5 mr-2" />
+                      Log in
+                    </Button>
+                  </Link>
+
+                  <Link href={`/signup?callbackUrl=${encodeURIComponent(`/join/${sessionCode}`)}`}>
+                    <Button variant="outline" className="w-full h-12" size="lg">
+                      <UserPlus className="w-5 h-5 mr-2" />
+                      Create Account
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <p className="text-center text-xs text-muted-foreground/60 mt-6">
+            Anyone with this session code can join as a tester.
+          </p>
+        </div>
+      </div>
+    );
+
   if (error)
     return (
       <div className="min-h-screen gradient-mesh flex items-center justify-center p-4">
@@ -408,7 +542,7 @@ export default function TesterSessionPage({
             <div className="flex flex-col gap-2">
               <Button onClick={() => {
                 setHasLeft(false);
-                fetchSession(); // This will call the join API which clears left_at
+                fetchSession(true); // Explicity request rejoin to clear left_at
               }}>
                 Continue Testing
               </Button>
@@ -476,20 +610,32 @@ export default function TesterSessionPage({
               variant="outline"
               size="sm"
               onClick={async () => {
+                if (!data?.tester?.invite_token) {
+                  alert("Error: Missing invite token");
+                  return;
+                }
+                const token = data.tester.invite_token;
+                console.log("Attempting to leave with token:", token);
+
                 try {
                   const res = await fetch(`/api/leave/${token}`, {
                     method: "POST",
+                    cache: "no-store",
                   });
+
                   if (res.ok) {
+                    console.log("Leave successful");
+                    // Force a re-fetch of session data to ensure cleaner state
                     setHasLeft(true);
                   } else {
-                    // If already left or other error, still show the left screen
-                    setHasLeft(true);
+                    const err = await res.json().catch(() => ({}));
+                    console.error("Leave failed:", res.status, err);
+                    alert(`Failed to leave session: ${err.error || "Unknown error"}`);
+                    // Do NOT setHasLeft(true) here, so user sees it failed
                   }
                 } catch (error) {
                   console.error("Error leaving session:", error);
-                  // Still show left screen even if API call fails
-                  setHasLeft(true);
+                  alert("Network error when trying to leave session");
                 }
               }}
               className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"

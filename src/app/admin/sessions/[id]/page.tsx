@@ -40,6 +40,7 @@ import {
   Send,
   BarChart3,
   GripVertical,
+  RefreshCw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -810,7 +811,13 @@ export default function SessionDetailPage({
 
   async function fetchSession() {
     try {
-      const res = await fetch(`/api/sessions/${id}`);
+      const res = await fetch(`/api/sessions/${id}?t=${Date.now()}`, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+          "Pragma": "no-cache",
+        },
+      });
       if (res.ok) setSession(await res.json());
     } finally {
       setLoading(false);
@@ -1814,6 +1821,30 @@ export default function SessionDetailPage({
                   {session.build_version}
                 </p>
               )}
+              {session.join_code && (
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-muted-foreground">Join Code:</span>
+                  <code className="px-2 py-0.5 rounded bg-secondary text-sm font-mono font-medium">
+                    {session.join_code}
+                  </code>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => {
+                      navigator.clipboard.writeText(session.join_code);
+                      setCopiedToken(session.join_code);
+                      setTimeout(() => setCopiedToken(null), 2000);
+                    }}
+                  >
+                    {copiedToken === session.join_code ? (
+                      <Check className="w-3 h-3 text-green-500" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -2061,13 +2092,24 @@ export default function SessionDetailPage({
           <Card>
             <CardHeader>
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <CardTitle>Testers</CardTitle>
-                  <CardDescription>
-                    {session.status === "completed"
-                      ? "Testers who participated"
-                      : "Manage testers and invite links"}
-                  </CardDescription>
+                <div className="flex items-center gap-2">
+                  <div>
+                    <CardTitle>Testers</CardTitle>
+                    <CardDescription>
+                      {session.status === "completed"
+                        ? "Testers who participated"
+                        : "Manage session testers"}
+                    </CardDescription>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={refreshSession}
+                    disabled={loading || refreshingSession}
+                  >
+                    <RefreshCw className={`w-4 h-4 ${refreshingSession ? "animate-spin" : ""}`} />
+                  </Button>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   {session.status === "completed" && selectedReportTesterIds.size > 0 && (
@@ -2249,42 +2291,11 @@ export default function SessionDetailPage({
                               {t.email}
                             </span>
                           )}
-                          {session.status !== "completed" && (
-                            <p className="text-xs sm:text-sm text-muted-foreground font-mono truncate mt-1">
-                              /join/{t.invite_token}
-                            </p>
-                          )}
                         </div>
                       </div>
                       {session.status !== "completed" && (
                         <div className="flex items-start sm:items-center gap-2 sm:gap-3 ml-auto shrink-0 pt-0.5">
                           <div className="hidden sm:flex items-center gap-2">
-                            <Tooltip content="Copy invite link" side="bottom">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => copyInviteLink(t.invite_token)}
-                                className="text-muted-foreground hover:text-foreground"
-                              >
-                                {copiedToken === t.invite_token ? (
-                                  <Check className="w-4 h-4 text-green-500" />
-                                ) : (
-                                  <Copy className="w-4 h-4" />
-                                )}
-                              </Button>
-                            </Tooltip>
-                            <Tooltip content="Open invite link" side="bottom">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="text-muted-foreground hover:text-foreground"
-                                asChild
-                              >
-                                <Link href={`/join/${t.invite_token}`} target="_blank">
-                                  <ExternalLink className="w-4 h-4" />
-                                </Link>
-                              </Button>
-                            </Tooltip>
                             <Tooltip content="Edit tester" side="bottom">
                               <Button
                                 variant="ghost"
@@ -2317,20 +2328,6 @@ export default function SessionDetailPage({
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => copyInviteLink(t.invite_token)}>
-                                {copiedToken === t.invite_token ? (
-                                  <Check className="w-4 h-4 mr-2 text-green-500" />
-                                ) : (
-                                  <Copy className="w-4 h-4 mr-2" />
-                                )}
-                                Copy invite link
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/join/${t.invite_token}`} target="_blank" className="flex items-center">
-                                  <ExternalLink className="w-4 h-4 mr-2" />
-                                  Open invite link
-                                </Link>
-                              </DropdownMenuItem>
                               <DropdownMenuItem onClick={() => openEditTesterDialog(t)}>
                                 <Edit2 className="w-4 h-4 mr-2" />
                                 Edit tester
