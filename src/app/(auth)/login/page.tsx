@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Mail, Lock, Eye, EyeOff, LogIn } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, LogIn, UserX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,13 +16,22 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+  const inviteEmail = searchParams.get("inviteEmail");
   const { toast } = useToast();
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(inviteEmail || "");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // Check if this is an invite flow (has both callbackUrl with /join/ and inviteEmail)
+  const isInviteFlow = inviteEmail && callbackUrl.includes("/join/");
+
+  // Sync email state with inviteEmail param (for client-side navigation)
+  useEffect(() => {
+    setEmail(inviteEmail || "");
+  }, [inviteEmail]);
 
   useEffect(() => {
     async function checkSession() {
@@ -73,7 +82,9 @@ function LoginForm() {
         </div>
         <CardTitle className="text-2xl font-bold">Log in</CardTitle>
         <CardDescription className="text-muted-foreground">
-          Access your tester workspace.
+          {isInviteFlow
+            ? "Sign in to access your invite"
+            : "Access your tester workspace."}
         </CardDescription>
       </CardHeader>
 
@@ -87,13 +98,19 @@ function LoginForm() {
                 id="email"
                 type="email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => !isInviteFlow && setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="pl-9 h-11"
+                className={`pl-9 h-11 ${isInviteFlow ? 'bg-secondary/50 cursor-not-allowed' : ''}`}
                 required
                 autoComplete="email"
+                readOnly={!!isInviteFlow}
               />
             </div>
+            {isInviteFlow && (
+              <p className="text-xs text-muted-foreground">
+                This email matches your invite
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -135,23 +152,36 @@ function LoginForm() {
           >
             Forgot password?
           </button>
-          <span>
-            Don&apos;t have an account?{" "}
-            <Button variant="link" className="px-1" onClick={() => router.push("/signup")}>
-              Sign up
-            </Button>
-          </span>
-          {/* <span>
-            Login as an admin?
-            <Button variant="link" className="px-1" onClick={() => router.push("/admin/login")}>
-              Sign in
-            </Button>
-          </span> */}
-          <p className="text-center text-xs text-muted-foreground/60 mt-6">
-            <Link href="/admin/login" className="hover:text-primary transition-colors underline underline-offset-4">
-              Login as an admin
-            </Link>
-          </p>
+
+          {isInviteFlow ? (
+            <>
+              <div className="pt-2 border-t border-border/50">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Want to use a different account?
+                </p>
+                <Link href={"/login"}>
+                  <Button variant="ghost" size="sm" className="text-muted-foreground">
+                    <UserX className="w-4 h-4 mr-1" />
+                    Leave invite & login differently
+                  </Button>
+                </Link>
+              </div>
+            </>
+          ) : (
+            <>
+              <span>
+                Don&apos;t have an account?{" "}
+                <Button variant="link" className="px-1" onClick={() => router.push("/signup")}>
+                  Sign up
+                </Button>
+              </span>
+              <p className="text-center text-xs text-muted-foreground/60 mt-6">
+                <Link href="/admin/login" className="hover:text-primary transition-colors underline underline-offset-4">
+                  Login as an admin
+                </Link>
+              </p>
+            </>
+          )}
         </div>
       </CardContent>
     </Card>

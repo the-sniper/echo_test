@@ -42,7 +42,7 @@ export async function POST(
 ) {
   try {
     const { token } = await params;
-    const { first_name, last_name, email } = await req.json();
+    const { first_name, last_name, email, user_id } = await req.json();
 
     // Validate required fields
     if (!first_name?.trim() || !last_name?.trim()) {
@@ -78,12 +78,20 @@ export async function POST(
     // Check if email already exists in this team
     const { data: existingMember } = await supabase
       .from("team_members")
-      .select("id, first_name, last_name")
+      .select("id, first_name, last_name, user_id")
       .eq("team_id", team.id)
       .eq("email", email.trim().toLowerCase())
       .single();
 
     if (existingMember) {
+      // If user_id is provided and member doesn't have one, update it
+      if (user_id && !existingMember.user_id) {
+        await supabase
+          .from("team_members")
+          .update({ user_id })
+          .eq("id", existingMember.id);
+      }
+
       // Return the existing member info (they're already registered)
       return NextResponse.json({
         member: existingMember,
@@ -92,15 +100,27 @@ export async function POST(
       });
     }
 
-    // Create new team member
+    // Create new team member with optional user_id
+    const memberData: {
+      team_id: string;
+      first_name: string;
+      last_name: string;
+      email: string;
+      user_id?: string;
+    } = {
+      team_id: team.id,
+      first_name: first_name.trim(),
+      last_name: last_name.trim(),
+      email: email.trim().toLowerCase(),
+    };
+
+    if (user_id) {
+      memberData.user_id = user_id;
+    }
+
     const { data: member, error: memberError } = await supabase
       .from("team_members")
-      .insert({
-        team_id: team.id,
-        first_name: first_name.trim(),
-        last_name: last_name.trim(),
-        email: email.trim().toLowerCase(),
-      })
+      .insert(memberData)
       .select()
       .single();
 
@@ -125,4 +145,5 @@ export async function POST(
     );
   }
 }
+
 

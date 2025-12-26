@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { hashPassword } from "@/lib/user-auth";
+import { hashPassword, createUserToken, setUserAuthCookie } from "@/lib/user-auth";
 
 export async function POST(req: Request) {
   try {
@@ -60,6 +60,17 @@ export async function POST(req: Request) {
       .update({ user_id: created.id })
       .eq("email", normalizedEmail)
       .is("user_id", null);
+
+    // Also link team members with same email to this user
+    await supabase
+      .from("team_members")
+      .update({ user_id: created.id })
+      .eq("email", normalizedEmail)
+      .is("user_id", null);
+
+    // Auto-login: create token and set auth cookie
+    const token = await createUserToken(created.id);
+    await setUserAuthCookie(token);
 
     return NextResponse.json({ success: true });
   } catch (error) {

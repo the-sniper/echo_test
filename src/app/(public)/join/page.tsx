@@ -19,7 +19,7 @@ import { AdminMobileHeader } from "@/components/admin/admin-sidebar";
 
 export default function JoinPage() {
   const router = useRouter();
-  const [token, setToken] = useState("");
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
@@ -43,19 +43,22 @@ export default function JoinPage() {
 
   async function handleJoin(e: React.FormEvent) {
     e.preventDefault();
-    if (!token.trim()) return;
+    const trimmedCode = code.trim().toUpperCase();
+    if (!trimmedCode) return;
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`/api/join/${token.trim()}`);
+      // Validate session code
+      const res = await fetch(`/api/sessions/join/${trimmedCode}`);
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error || "Invalid invite code");
+        setError(data.error || "Invalid session code");
         return;
       }
-      router.push(`/join/${token.trim()}`);
+      // Navigate to session join page
+      router.push(`/join/${trimmedCode}`);
     } catch {
-      setError("Failed to join");
+      setError("Failed to validate code");
     } finally {
       setLoading(false);
     }
@@ -86,19 +89,20 @@ export default function JoinPage() {
             <CardHeader className="text-center pb-4">
               <CardTitle className="text-xl">Join Test Session</CardTitle>
               <CardDescription>
-                Enter your invite code to get started
+                Enter the session code to get started
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleJoin} className="space-y-5">
                 <div className="space-y-2">
-                  <Label htmlFor="token">Invite Code</Label>
+                  <Label htmlFor="code">Session Code</Label>
                   <Input
-                    id="token"
-                    value={token}
-                    onChange={(e) => setToken(e.target.value)}
-                    placeholder="Enter your invite code"
-                    className="text-center text-lg tracking-wider h-12"
+                    id="code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.toUpperCase())}
+                    placeholder="ABC123"
+                    className="text-center text-lg tracking-wider h-12 font-mono uppercase"
+                    maxLength={6}
                   />
                   {error && <p className="text-sm text-destructive">{error}</p>}
                 </div>
@@ -106,7 +110,7 @@ export default function JoinPage() {
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={loading || !token.trim()}
+                  disabled={loading || !code.trim()}
                 >
                   {loading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
