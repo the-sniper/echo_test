@@ -66,7 +66,7 @@ export function StatsCards({ sessions, notes }: StatsCardsProps) {
         }));
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Total Sessions */}
             <Card className="glass border-border/50">
                 <CardContent className="pt-6">
@@ -154,8 +154,8 @@ export function StatsCards({ sessions, notes }: StatsCardsProps) {
                                                     data={categoryData}
                                                     cx="50%"
                                                     cy="50%"
-                                                    innerRadius={18}
-                                                    outerRadius={30}
+                                                    innerRadius={15}
+                                                    outerRadius={25}
                                                     paddingAngle={2}
                                                     dataKey="value"
                                                 >
@@ -175,14 +175,16 @@ export function StatsCards({ sessions, notes }: StatsCardsProps) {
                                             </PieChart>
                                         </ResponsiveContainer>
                                     </div>
-                                    <div className="space-y-1">
-                                        {categoryData.slice(0, 3).map((cat) => (
+                                    <div className="flex flex-col gap-1 w-full min-w-0">
+                                        {categoryData.map((cat) => (
                                             <div key={cat.name} className="flex items-center gap-1.5 text-xs">
                                                 <div
-                                                    className="w-2 h-2 rounded-full"
+                                                    className="w-2 h-2 rounded-full flex-shrink-0"
                                                     style={{ backgroundColor: cat.color }}
                                                 />
-                                                <span className="text-muted-foreground">{cat.value}</span>
+                                                <span className="text-muted-foreground truncate">
+                                                    {cat.name} <span className="opacity-70">({cat.value})</span>
+                                                </span>
                                             </div>
                                         ))}
                                     </div>

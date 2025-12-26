@@ -270,3 +270,9 @@ body[data-scroll-locked] {
 .bg-gradient-primary {
   background: linear-gradient(135deg, hsl(224 50% 54%) 0%, hsl(222 89% 78%) 100%);
 }
+
+/* Horizontal scroll mask */
+.mask-gradient-right {
+  -webkit-mask-image: linear-gradient(to right, black 90%, transparent 100%);
+  mask-image: linear-gradient(to right, black 90%, transparent 100%);
+}

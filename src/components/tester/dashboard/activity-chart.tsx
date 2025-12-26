@@ -36,12 +36,12 @@ export function ActivityChart({ data }: ActivityChartProps) {
     return (
         <Card className="glass border-border/50">
             <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-0">
                     <CardTitle className="text-base font-semibold flex items-center gap-2">
                         <TrendingUp className="w-4 h-4 text-primary" />
                         Recent Activity
                     </CardTitle>
-                    <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground self-start sm:self-auto">
                         <Mic className="w-3.5 h-3.5" />
                         <span>{totalNotes} notes this week</span>
                     </div>

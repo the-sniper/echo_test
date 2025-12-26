@@ -180,7 +180,7 @@ export default function SessionsPage() {
                 </div>
 
                 {/* Filter Tabs */}
-                <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                <div className="flex items-center gap-1 overflow-x-auto pb-2 no-scrollbar mask-gradient-right pr-4">
                     {FILTER_OPTIONS.map(({ key, label }) => {
                         const count = key === "all" ? counts.total :
                             key === "pending" ? counts.pending :
@@ -190,8 +190,8 @@ export default function SessionsPage() {
                                 key={key}
                                 onClick={() => setFilter(key)}
                                 className={`
-                    px-4 py-2 rounded-full text-sm font-medium transition-all
-                    flex items-center gap-2 whitespace-nowrap
+                    px-2.5 py-1.5 rounded-full text-xs font-medium transition-all
+                    flex items-center gap-1 whitespace-nowrap flex-shrink-0
                     ${filter === key
                                         ? "bg-primary text-primary-foreground shadow-md"
                                         : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
@@ -200,7 +200,7 @@ export default function SessionsPage() {
                             >
                                 {label}
                                 <span className={`
-                    text-xs px-1.5 py-0.5 rounded-full
+                    text-[10px] px-1.5 py-0.5 rounded-full min-w-[1.25rem] text-center
                     ${filter === key
                                         ? "bg-primary-foreground/20 text-primary-foreground"
                                         : "bg-muted text-muted-foreground"
@@ -213,11 +213,12 @@ export default function SessionsPage() {
                     })}
                 </div>
 
+
                 {/* Sessions List */}
                 <Card className="glass border-border/50">
-                    <CardContent className="pt-6">
+                    <CardContent className="p-0 sm:p-6 space-y-4 sm:space-y-3">
                         {filteredSessions.length === 0 ? (
-                            <div className="py-12 text-center">
+                            <div className="py-12 text-center p-6">
                                 <div className="w-16 h-16 rounded-full bg-muted/50 flex items-center justify-center mx-auto mb-4">
                                     <Clipboard className="w-8 h-8 text-muted-foreground" />
                                 </div>
@@ -234,7 +235,7 @@ export default function SessionsPage() {
                                 </p>
                             </div>
                         ) : (
-                            <div className="space-y-3">
+                            <div className="space-y-4 sm:space-y-3 p-4 sm:p-0">
                                 {filteredSessions.map((session) => {
                                     const statusConfig = getStatusConfig(session.status);
                                     const StatusIcon = statusConfig.icon;
@@ -242,12 +243,12 @@ export default function SessionsPage() {
                                     return (
                                         <div
                                             key={session.id}
-                                            className="group p-4 rounded-xl bg-secondary/30 hover:bg-secondary/50 transition-all duration-200 border border-transparent hover:border-border/50"
+                                            className="group p-4 rounded-xl bg-secondary/30 border border-transparent sm:hover:bg-secondary/50 transition-all duration-200 hover:border-border/50"
                                         >
-                                            <div className="flex items-start justify-between gap-4">
+                                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        <h4 className="font-medium truncate">{session.name}</h4>
+                                                        <h4 className="font-medium truncate text-base sm:text-sm">{session.name}</h4>
                                                         <Badge
                                                             className={`${statusConfig.className} text-xs flex items-center gap-1`}
                                                         >
@@ -268,27 +269,29 @@ export default function SessionsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                                                     {session.status === "active" && (
-                                                        <Link href={`/join/${session.inviteToken}`}>
-                                                            <Button size="sm" className="gap-1.5">
+                                                        <Link href={`/join/${session.inviteToken}`} className="w-full sm:w-auto">
+                                                            <Button size="sm" className="gap-1.5 w-full sm:w-auto">
                                                                 Join Session
                                                                 <ChevronRight className="w-4 h-4" />
                                                             </Button>
                                                         </Link>
                                                     )}
                                                     {session.status === "completed" && session.shareToken && (
-                                                        <Link href={`/report/${session.shareToken}`}>
-                                                            <Button size="sm" variant="outline" className="gap-1.5">
+                                                        <Link href={`/report/${session.shareToken}`} className="w-full sm:w-auto">
+                                                            <Button size="sm" variant="outline" className="gap-1.5 w-full sm:w-auto">
                                                                 View Report
                                                                 <ExternalLink className="w-3.5 h-3.5" />
                                                             </Button>
                                                         </Link>
                                                     )}
                                                     {session.status === "draft" && (
-                                                        <span className="text-xs text-muted-foreground px-2">
-                                                            Waiting to start
-                                                        </span>
+                                                        <div className="bg-secondary/50 rounded-lg py-2 px-3 text-center w-full sm:w-auto sm:bg-transparent sm:p-0">
+                                                            <span className="text-xs text-muted-foreground">
+                                                                Waiting to start
+                                                            </span>
+                                                        </div>
                                                     )}
                                                 </div>
                                             </div>
@@ -300,6 +303,7 @@ export default function SessionsPage() {
                     </CardContent>
                 </Card>
             </div>
-        </main>
+        </main >
     );
 }
+
