@@ -797,6 +797,14 @@ export default function SessionDetailPage({
     fetchSession();
     fetchTeams();
     fetchPollResponses();
+
+    // Auto-poll every 45 seconds to see testers joining/leaving
+    const pollInterval = setInterval(() => {
+      fetchSession();
+      fetchPollResponses();
+    }, 45000);
+
+    return () => clearInterval(pollInterval);
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [id]);
 
@@ -2214,12 +2222,26 @@ export default function SessionDetailPage({
                                 </span>
                               ) : null
                             ) : (
-                              t.invite_sent_at && (
-                                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
-                                  <Mail className="w-3 h-3" />
-                                  Invited
-                                </span>
-                              )
+                              <>
+                                {t.invite_sent_at && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium bg-green-500/10 text-green-600 dark:text-green-400">
+                                    <Mail className="w-3 h-3" />
+                                    Invited
+                                  </span>
+                                )}
+                                {t.user_id && !t.left_at && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ml-1.5 bg-blue-500/10 text-blue-600 dark:text-blue-400">
+                                    <CheckCircle className="w-3 h-3" />
+                                    Joined
+                                  </span>
+                                )}
+                                {t.left_at && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ml-1.5 bg-gray-500/10 text-gray-600 dark:text-gray-400">
+                                    <XCircle className="w-3 h-3" />
+                                    Left
+                                  </span>
+                                )}
+                              </>
                             )}
                           </div>
                           {t.email && (

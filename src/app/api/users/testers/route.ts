@@ -91,12 +91,20 @@ export async function GET() {
     // Sort by created_at descending
     testers.sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-    // Backfill missing user_id where email matches
+    // Backfill missing user_id where email matches and clear left_at for rejoining
     const missingLinks = testers
       .filter((t: any) => !t.user_id && typeof t.email === "string" && t.email.toLowerCase() === normalizedEmail)
       .map((t: any) => t.id);
     if (missingLinks.length > 0) {
-      await supabase.from("testers").update({ user_id: user.id }).in("id", missingLinks);
+      await supabase.from("testers").update({ user_id: user.id, left_at: null }).in("id", missingLinks);
+    }
+
+    // Also clear left_at for any testers that already have user_id set (rejoining after leaving)
+    const rejoinIds = testers
+      .filter((t: any) => t.user_id === user.id && t.left_at)
+      .map((t: any) => t.id);
+    if (rejoinIds.length > 0) {
+      await supabase.from("testers").update({ left_at: null }).in("id", rejoinIds);
     }
 
     return NextResponse.json({ testers });

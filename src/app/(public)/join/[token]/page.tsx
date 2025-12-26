@@ -406,7 +406,10 @@ export default function TesterSessionPage({
               feedback.
             </p>
             <div className="flex flex-col gap-2">
-              <Button onClick={() => setHasLeft(false)}>
+              <Button onClick={() => {
+                setHasLeft(false);
+                fetchSession(); // This will call the join API which clears left_at
+              }}>
                 Continue Testing
               </Button>
               <Link href="/join">
@@ -469,15 +472,31 @@ export default function TesterSessionPage({
               <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
               <span className="text-sm text-green-600 dark:text-green-400 font-medium">Live</span>
             </div>
-            {/* <Button
+            <Button
               variant="outline"
               size="sm"
-              onClick={() => setHasLeft(true)}
+              onClick={async () => {
+                try {
+                  const res = await fetch(`/api/leave/${token}`, {
+                    method: "POST",
+                  });
+                  if (res.ok) {
+                    setHasLeft(true);
+                  } else {
+                    // If already left or other error, still show the left screen
+                    setHasLeft(true);
+                  }
+                } catch (error) {
+                  console.error("Error leaving session:", error);
+                  // Still show left screen even if API call fails
+                  setHasLeft(true);
+                }
+              }}
               className="border-destructive/50 text-destructive hover:bg-destructive hover:text-destructive-foreground"
             >
               <LogOut className="w-4 h-4 mr-1.5" />
               <span className="hidden sm:inline">Leave</span>
-            </Button> */}
+            </Button>
           </div>
         </div>
 

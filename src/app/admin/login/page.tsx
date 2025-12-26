@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import Link from "next/link";
 
 function LoginForm() {
   const router = useRouter();
@@ -243,11 +244,21 @@ function LoginForm() {
             )}
           </CardContent>
         </Card>
-
+        {/* <p className="text-center text-xs text-muted-foreground/60 mt-6">
+          <Link href="/login" className="hover:text-primary transition-colors underline underline-offset-4">
+            Login as a user
+          </Link>
+        </p> */}
+        <h5 className="text-center text-muted-foreground/60 mt-6">
+          Login as user?
+          <Button variant="link" className="px-1" onClick={() => router.push("/login")}>
+            Sign in
+          </Button>
+        </h5>
         {/* Subtle footer */}
-        <p className="text-center text-xs text-muted-foreground/60 mt-6">
+        {/* <p className="text-center text-xs text-muted-foreground/60 mt-6">
           Protected by AirLog Authentication
-        </p>
+        </p> */}
       </div>
     </div>
   );

@@ -119,14 +119,18 @@ export default function SignupPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="last_name">Last name</Label>
-                  <Input
-                    id="last_name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Syed"
-                    className="h-11"
-                    required
-                  />
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                      id="last_name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Syed"
+                      className="pl-9 h-11"
+                      required
+                    />
+                  </div>
+
                 </div>
               </div>
 

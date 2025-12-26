@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import Link from "next/link";
 
 function LoginForm() {
   const router = useRouter();
@@ -140,6 +141,17 @@ function LoginForm() {
               Sign up
             </Button>
           </span>
+          {/* <span>
+            Login as an admin?
+            <Button variant="link" className="px-1" onClick={() => router.push("/admin/login")}>
+              Sign in
+            </Button>
+          </span> */}
+          <p className="text-center text-xs text-muted-foreground/60 mt-6">
+            <Link href="/admin/login" className="hover:text-primary transition-colors underline underline-offset-4">
+              Login as an admin
+            </Link>
+          </p>
         </div>
       </CardContent>
     </Card>
