@@ -10,6 +10,12 @@ import {
   Sparkles,
   RefreshCw,
   MessageSquare,
+  Sun,
+  Moon,
+  Cloud,
+  CloudRain,
+  CloudSnow,
+  CloudFog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +32,8 @@ import {
 } from "@/components/admin/dashboard";
 import { WeatherEffects } from "@/components/ui/weather-effects";
 import { useWeather } from "@/hooks/use-weather";
+import { getWeatherGradient, getWeatherTextColor } from "@/lib/weather-utils";
+import { cn } from "@/lib/utils";
 
 export default function AdminDashboard() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
@@ -58,6 +66,53 @@ export default function AdminDashboard() {
     setRefreshing(false);
   }
 
+  // Get weather-based gradient
+  const gradientClass = weather.loading
+    ? "from-secondary/50 via-secondary/30 to-secondary/50"
+    : getWeatherGradient(weather.condition, weather.isDay);
+
+  // Get weather-based text colors
+  const textColors = weather.loading
+    ? { primary: "text-foreground", secondary: "text-muted-foreground", muted: "text-muted-foreground" }
+    : getWeatherTextColor(weather.condition, weather.isDay);
+
+  // Check if we have a light background
+  const isLightBg = !weather.loading && (
+    (weather.condition === 'snow' && weather.isDay) ||
+    (weather.condition === 'cloudy' && weather.isDay) ||
+    (weather.condition === 'fog' && weather.isDay) ||
+    (weather.condition === 'mist' && weather.isDay)
+  );
+
+  // Get weather icon based on condition
+  const getWeatherIcon = () => {
+    switch (weather.condition) {
+      case 'rain':
+      case 'drizzle':
+      case 'heavy_rain':
+      case 'thunderstorm':
+        return CloudRain;
+      case 'snow':
+        return CloudSnow;
+      case 'cloudy':
+        return Cloud;
+      case 'fog':
+      case 'mist':
+        return CloudFog;
+      default:
+        return weather.isDay ? Sun : Moon;
+    }
+  };
+  const WeatherIcon = getWeatherIcon();
+
+  // Format the date
+  const formattedDate = new Date().toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+  });
+
   // Dashboard skeleton
   const DashboardSkeleton = () => (
     <div className="space-y-6 animate-pulse">
@@ -81,7 +136,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header Banner with Weather Effects */}
-      <div className="relative rounded-xl overflow-hidden bg-gradient-to-r from-secondary/50 via-secondary/30 to-secondary/50 border border-border/50">
+      <div className={cn(
+        "relative rounded-xl overflow-hidden border border-border/50 bg-gradient-to-br transition-all duration-1000",
+        gradientClass
+      )}>
         {/* Weather Effects Background */}
         {!weather.loading && (
           <div className="absolute inset-0 pointer-events-none">
@@ -97,12 +155,17 @@ export default function AdminDashboard() {
         {/* Header Content */}
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 backdrop-blur-sm">
-              <LayoutDashboard className="h-5 w-5 text-primary" />
+            <div className={cn(
+              "flex h-10 w-10 items-center justify-center rounded-xl backdrop-blur-sm border",
+              isLightBg
+                ? "bg-slate-800/10 border-slate-400/30"
+                : "bg-white/20 border-white/30"
+            )}>
+              <LayoutDashboard className={cn("h-5 w-5", textColors.primary)} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-              <p className="text-sm text-muted-foreground">
+              <h1 className={cn("text-2xl font-bold tracking-tight", textColors.primary)}>Dashboard</h1>
+              <p className={cn("text-sm", textColors.secondary)}>
                 Overview of your testing activity
               </p>
             </div>
@@ -114,10 +177,39 @@ export default function AdminDashboard() {
               onValueChange={(v) => setTimeFilter(v as typeof timeFilter)}
               className="w-auto"
             >
-              <TabsList className="h-9 backdrop-blur-sm">
-                <TabsTrigger value="7d" className="text-xs px-3">7 days</TabsTrigger>
-                <TabsTrigger value="30d" className="text-xs px-3">30 days</TabsTrigger>
-                <TabsTrigger value="all" className="text-xs px-3">All time</TabsTrigger>
+              <TabsList className={cn(
+                "h-9 backdrop-blur-sm border",
+                isLightBg
+                  ? "bg-slate-800/10 border-slate-400/30"
+                  : "bg-white/10 border-white/20"
+              )}>
+                <TabsTrigger
+                  value="7d"
+                  className={cn(
+                    "text-xs px-3",
+                    isLightBg
+                      ? "text-slate-600 data-[state=active]:text-slate-800 data-[state=active]:bg-slate-800/10"
+                      : "text-white/80 data-[state=active]:text-white data-[state=active]:bg-white/20"
+                  )}
+                >7 days</TabsTrigger>
+                <TabsTrigger
+                  value="30d"
+                  className={cn(
+                    "text-xs px-3",
+                    isLightBg
+                      ? "text-slate-600 data-[state=active]:text-slate-800 data-[state=active]:bg-slate-800/10"
+                      : "text-white/80 data-[state=active]:text-white data-[state=active]:bg-white/20"
+                  )}
+                >30 days</TabsTrigger>
+                <TabsTrigger
+                  value="all"
+                  className={cn(
+                    "text-xs px-3",
+                    isLightBg
+                      ? "text-slate-600 data-[state=active]:text-slate-800 data-[state=active]:bg-slate-800/10"
+                      : "text-white/80 data-[state=active]:text-white data-[state=active]:bg-white/20"
+                  )}
+                >All time</TabsTrigger>
               </TabsList>
             </Tabs>
             <Button
@@ -125,13 +217,26 @@ export default function AdminDashboard() {
               size="icon"
               onClick={handleRefresh}
               disabled={refreshing}
-              className="shrink-0 h-9 w-9 backdrop-blur-sm"
+              className={cn(
+                "shrink-0 h-9 w-9 backdrop-blur-sm",
+                isLightBg
+                  ? "bg-slate-800/10 border-slate-400/30 text-slate-700 hover:bg-slate-800/20 hover:text-slate-900"
+                  : "bg-white/10 border-white/20 text-white hover:bg-white/20 hover:text-white"
+              )}
             >
               <RefreshCw
                 className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
               />
             </Button>
           </div>
+        </div>
+
+        {/* Date and Weather Display */}
+        <div className="relative z-10 flex items-center justify-end gap-2 px-4 pb-1 md:px-6 md:pb-2">
+          <WeatherIcon className={cn("w-3.5 h-3.5", textColors.secondary)} />
+          <span className={cn("text-xs font-medium", textColors.secondary)}>
+            {formattedDate}
+          </span>
         </div>
       </div>
 

@@ -250,61 +250,51 @@ export function WeatherEffects({ type, isDay, windSpeed = 0, cloudCover = 0 }: W
         ctx.fill();
     }, []);
 
-    // Draw cloud with more detail
-    const drawCloud = useCallback((ctx: CanvasRenderingContext2D, p: Particle, isDarkCloud: boolean = false) => {
+    // Draw atmospheric cloud layer - wide horizontal bands instead of bubbles
+    const drawCloud = useCallback((ctx: CanvasRenderingContext2D, p: Particle, isDarkCloud: boolean = false, canvasWidth: number = 800) => {
         ctx.save();
 
-        const baseSize = p.size;
         const layer = p.layer || 0;
-        const baseColor = isDarkCloud ? { r: 80, g: 90, b: 100 } : { r: 255, g: 255, b: 255 };
 
-        // Cloud shape varies by layer
-        let cloudParts: Array<{ xOff: number, yOff: number, rx: number, ry: number }> = [];
-
-        if (layer === 0) {
-            cloudParts = [
-                { xOff: 0, yOff: 0, rx: baseSize * 1.2, ry: baseSize * 0.35 },
-                { xOff: -baseSize * 0.8, yOff: baseSize * 0.05, rx: baseSize * 0.9, ry: baseSize * 0.3 },
-                { xOff: baseSize * 0.7, yOff: -baseSize * 0.05, rx: baseSize * 0.85, ry: baseSize * 0.28 },
-                { xOff: baseSize * 0.2, yOff: -baseSize * 0.15, rx: baseSize * 0.7, ry: baseSize * 0.25 },
-            ];
-        } else if (layer === 1) {
-            cloudParts = [
-                { xOff: 0, yOff: 0, rx: baseSize * 0.9, ry: baseSize * 0.45 },
-                { xOff: -baseSize * 0.65, yOff: baseSize * 0.08, rx: baseSize * 0.6, ry: baseSize * 0.35 },
-                { xOff: baseSize * 0.55, yOff: baseSize * 0.03, rx: baseSize * 0.65, ry: baseSize * 0.38 },
-                { xOff: -baseSize * 0.25, yOff: -baseSize * 0.25, rx: baseSize * 0.55, ry: baseSize * 0.32 },
-                { xOff: baseSize * 0.3, yOff: -baseSize * 0.2, rx: baseSize * 0.5, ry: baseSize * 0.3 },
-            ];
+        // Different colors based on layer depth for atmospheric perspective
+        let baseColor: { r: number; g: number; b: number };
+        if (isDarkCloud) {
+            // Storm clouds - darker, more dramatic
+            baseColor = layer === 0
+                ? { r: 60, g: 65, b: 75 }
+                : layer === 1
+                    ? { r: 75, g: 80, b: 90 }
+                    : { r: 90, g: 95, b: 105 };
         } else {
-            cloudParts = [
-                { xOff: 0, yOff: 0, rx: baseSize * 0.7, ry: baseSize * 0.35 },
-                { xOff: -baseSize * 0.5, yOff: baseSize * 0.1, rx: baseSize * 0.5, ry: baseSize * 0.28 },
-                { xOff: baseSize * 0.45, yOff: -baseSize * 0.05, rx: baseSize * 0.55, ry: baseSize * 0.3 },
-            ];
+            // Regular clouds - soft white to light gray
+            baseColor = layer === 0
+                ? { r: 220, g: 225, b: 230 }
+                : layer === 1
+                    ? { r: 235, g: 238, b: 242 }
+                    : { r: 248, g: 250, b: 252 };
         }
 
-        cloudParts.forEach((part, idx) => {
-            const cx = p.x + part.xOff;
-            const cy = p.y + part.yOff;
-            const maxRadius = Math.max(part.rx, part.ry);
+        // Create wide, flat cloud band - more like a horizontal stripe
+        const bandWidth = canvasWidth * (0.6 + layer * 0.2);
+        const bandHeight = p.size * (0.2 + layer * 0.1);
 
-            const gradient = ctx.createRadialGradient(
-                cx, cy - maxRadius * 0.1, 0,
-                cx, cy, maxRadius * 1.2
-            );
+        // Use a horizontal gradient for more natural cloud look
+        const gradient = ctx.createRadialGradient(
+            p.x, p.y, 0,
+            p.x, p.y, bandWidth * 0.5
+        );
 
-            const centerOpacity = p.opacity * (1.2 - idx * 0.05);
-            gradient.addColorStop(0, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${centerOpacity})`);
-            gradient.addColorStop(0.3, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${p.opacity * 0.8})`);
-            gradient.addColorStop(0.6, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${p.opacity * 0.4})`);
-            gradient.addColorStop(1, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0)`);
+        const opacity = p.opacity * (0.6 + layer * 0.15);
+        gradient.addColorStop(0, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity})`);
+        gradient.addColorStop(0.3, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity * 0.7})`);
+        gradient.addColorStop(0.6, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, ${opacity * 0.3})`);
+        gradient.addColorStop(1, `rgba(${baseColor.r}, ${baseColor.g}, ${baseColor.b}, 0)`);
 
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, part.rx, part.ry, 0, 0, Math.PI * 2);
-            ctx.fill();
-        });
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        // Wide, flat ellipse - much more horizontal than circular
+        ctx.ellipse(p.x, p.y, bandWidth * 0.5, bandHeight, 0, 0, Math.PI * 2);
+        ctx.fill();
 
         ctx.restore();
     }, []);
@@ -575,28 +565,20 @@ export function WeatherEffects({ type, isDay, windSpeed = 0, cloudCover = 0 }: W
             }
         }
 
-        // Clouds for cloudy or thunderstorm
-        if (type === 'cloudy' || type === 'thunderstorm') {
-            const isDark = type === 'thunderstorm';
-            const layers = [
-                { count: isMobile ? 2 : 3, layer: 0, sizeBase: 100, speedBase: 0.02 },
-                { count: isMobile ? 3 : 5, layer: 1, sizeBase: 70, speedBase: 0.04 },
-                { count: isMobile ? 2 : 4, layer: 2, sizeBase: 45, speedBase: 0.06 },
-            ];
-
-            layers.forEach(config => {
-                for (let i = 0; i < config.count; i++) {
-                    particles.push({
-                        x: Math.random() * w * 1.5 - w * 0.25,
-                        y: h * 0.1 + Math.random() * (h * 0.4),
-                        speed: config.speedBase + Math.random() * 0.03,
-                        size: config.sizeBase + Math.random() * 40,
-                        opacity: isDark ? 0.05 + Math.random() * 0.03 : 0.02 + Math.random() * 0.02,
-                        type: 'cloud',
-                        layer: config.layer,
-                    });
-                }
-            });
+        // Only generate dark clouds for thunderstorm (cloudy weather uses gradient only)
+        if (type === 'thunderstorm') {
+            // Dark storm clouds in background - minimal, just for atmosphere
+            for (let i = 0; i < (isMobile ? 2 : 3); i++) {
+                particles.push({
+                    x: Math.random() * w,
+                    y: h * 0.2 + Math.random() * (h * 0.3),
+                    speed: 0.01 + Math.random() * 0.01,
+                    size: 80 + Math.random() * 40,
+                    opacity: 0.15 + Math.random() * 0.1,
+                    type: 'cloud',
+                    layer: i % 3,
+                });
+            }
         }
 
         // Fog layers
@@ -744,15 +726,15 @@ export function WeatherEffects({ type, isDay, windSpeed = 0, cloudCover = 0 }: W
                     }
 
                     case 'cloud': {
-                        const layerSpeed = (p.layer || 0) === 0 ? 0.5 : (p.layer || 0) === 1 ? 1 : 1.5;
-                        p.x += (windSpeed * 0.02 + p.speed) * layerSpeed;
+                        const layerSpeed = (p.layer || 0) === 0 ? 0.3 : (p.layer || 0) === 1 ? 0.5 : 0.8;
+                        p.x += (windSpeed * 0.01 + p.speed) * layerSpeed;
 
-                        const cloudWidth = p.size * 2.5;
-                        if (p.x > canvas.width + cloudWidth) {
-                            p.x = -cloudWidth;
+                        // Wrap around when off screen
+                        if (p.x > canvas.width * 1.5) {
+                            p.x = -canvas.width * 0.5;
                         }
 
-                        drawCloud(ctx, p, type === 'thunderstorm');
+                        drawCloud(ctx, p, type === 'thunderstorm', canvas.width);
                         break;
                     }
 

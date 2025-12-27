@@ -1,6 +1,7 @@
-import { Sparkles, Sun, Moon, CloudSun, CloudRain, CloudSnow, Cloud } from "lucide-react";
+import { Sun, Moon, CloudRain, CloudSnow, Cloud } from "lucide-react";
 import { useWeather, WeatherCondition } from "@/hooks/use-weather";
 import { WeatherEffects } from "@/components/ui/weather-effects";
+import { getWeatherGradient, getWeatherTextColor } from "@/lib/weather-utils";
 import { cn } from "@/lib/utils";
 
 interface DashboardWelcomeProps {
@@ -23,26 +24,6 @@ function getWeatherIcon(condition: WeatherCondition, isDay: boolean) {
     }
 }
 
-function getWeatherGradient(condition: WeatherCondition, isDay: boolean): string {
-    if (condition === 'rain') {
-        return "from-slate-700 via-blue-900 to-slate-900";
-    }
-    if (condition === 'snow') {
-        return isDay
-            ? "from-blue-100 via-blue-200 to-indigo-200"
-            : "from-slate-800 via-blue-900 to-slate-900";
-    }
-    if (condition === 'cloudy') {
-        return isDay
-            ? "from-slate-400 via-gray-400 to-slate-300"
-            : "from-slate-700 via-gray-800 to-slate-900";
-    }
-    // Clear/Default
-    return isDay
-        ? "from-blue-400 via-sky-400 to-blue-200"
-        : "from-primary/90 via-primary to-accent/80 dark:from-primary/80 dark:via-primary/90 dark:to-accent/60";
-}
-
 export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps) {
     const { condition, isDay, loading, windSpeed, cloudCover } = useWeather();
     const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
@@ -54,16 +35,13 @@ export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps)
 
     // Default gradient if loading
     const gradientClass = loading
-        ? "from-primary/90 via-primary to-accent/80 dark:from-primary/80 dark:via-primary/90 dark:to-accent/60"
+        ? "from-primary/90 via-primary to-accent/80"
         : getWeatherGradient(condition, isDay);
 
-    const textColor = (condition === 'snow' && isDay) || (condition === 'cloudy' && isDay)
-        ? "text-slate-800"
-        : "text-white";
-
-    const subTextColor = (condition === 'snow' && isDay) || (condition === 'cloudy' && isDay)
-        ? "text-slate-700"
-        : "text-white/80";
+    // Get text colors based on weather
+    const textColors = loading
+        ? { primary: "text-white", secondary: "text-white/80", muted: "text-white/70" }
+        : getWeatherTextColor(condition, isDay);
 
     const date = new Date().toLocaleDateString("en-US", {
         weekday: "long",
@@ -71,6 +49,14 @@ export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps)
         day: "numeric",
         year: "numeric"
     });
+
+    // Check if we have a light background (need dark text & different avatar styling)
+    const isLightBg = !loading && (
+        (condition === 'snow' && isDay) ||
+        (condition === 'cloudy' && isDay) ||
+        (condition === 'fog' && isDay) ||
+        (condition === 'mist' && isDay)
+    );
 
     return (
         <div className="relative overflow-hidden rounded-2xl p-6 md:p-8 transition-colors duration-1000">
@@ -106,11 +92,11 @@ export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps)
                 <div className="flex-shrink-0">
                     <div className={cn(
                         "w-16 h-16 md:w-20 md:h-20 rounded-2xl backdrop-blur-md flex items-center justify-center border shadow-lg transition-colors duration-500",
-                        (condition === 'snow' && isDay) || (condition === 'cloudy' && isDay)
+                        isLightBg
                             ? "bg-white/40 border-slate-200/50 shadow-slate-200/20"
                             : "bg-white/20 border-white/30 shadow-primary/20"
                     )}>
-                        <span className={cn("text-2xl md:text-3xl font-bold transition-colors duration-500", textColor)}>
+                        <span className={cn("text-2xl md:text-3xl font-bold transition-colors duration-500", textColors.primary)}>
                             {initials}
                         </span>
                     </div>
@@ -119,17 +105,15 @@ export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps)
                 {/* Greeting text */}
                 <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1.5">
-                        <WeatherIcon className={cn("w-4 h-4 transition-colors duration-500", subTextColor)} />
-                        <span className={cn("text-sm font-medium transition-colors duration-500", subTextColor)}>
+                        <WeatherIcon className={cn("w-4 h-4 transition-colors duration-500", textColors.secondary)} />
+                        <span className={cn("text-sm font-medium transition-colors duration-500", textColors.secondary)}>
                             {date}
                         </span>
                     </div>
-                    <h1 className={cn("text-2xl md:text-3xl font-bold mb-2 transition-colors duration-500", textColor)}>
+                    <h1 className={cn("text-2xl md:text-3xl font-bold mb-2 transition-colors duration-500", textColors.primary)}>
                         {greeting}, {firstName}!
                     </h1>
-                    <p className={cn("text-sm md:text-base max-w-lg leading-relaxed transition-colors duration-500",
-                        (condition === 'snow' && isDay) || (condition === 'cloudy' && isDay) ? "text-slate-600" : "text-white/75"
-                    )}>
+                    <p className={cn("text-sm md:text-base max-w-lg leading-relaxed transition-colors duration-500", textColors.muted)}>
                         Welcome to your testing dashboard. Here&apos;s an overview of your activity and sessions.
                     </p>
                 </div>
@@ -138,10 +122,11 @@ export function DashboardWelcome({ firstName, lastName }: DashboardWelcomeProps)
             {/* Bottom accent line */}
             <div className={cn(
                 "absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent to-transparent transition-colors duration-500",
-                (condition === 'snow' && isDay) || (condition === 'cloudy' && isDay)
+                isLightBg
                     ? "via-slate-400/30"
                     : "via-white/30"
             )} />
         </div>
     );
 }
+
