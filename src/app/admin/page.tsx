@@ -24,12 +24,15 @@ import {
   TesterLeaderboard,
   ActiveSessionsBanner,
 } from "@/components/admin/dashboard";
+import { WeatherEffects } from "@/components/ui/weather-effects";
+import { useWeather } from "@/hooks/use-weather";
 
 export default function AdminDashboard() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(null);
   const [dashboardLoading, setDashboardLoading] = useState(true);
   const [timeFilter, setTimeFilter] = useState<"7d" | "30d" | "all">("30d");
   const [refreshing, setRefreshing] = useState(false);
+  const weather = useWeather();
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -77,43 +80,58 @@ export default function AdminDashboard() {
 
   return (
     <div className="space-y-8">
-      {/* Dashboard Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10">
-            <LayoutDashboard className="h-5 w-5 text-primary" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-            <p className="text-sm text-muted-foreground">
-              Overview of your testing activity
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Time Filter Tabs */}
-          <Tabs
-            value={timeFilter}
-            onValueChange={(v) => setTimeFilter(v as typeof timeFilter)}
-            className="w-auto"
-          >
-            <TabsList className="h-9">
-              <TabsTrigger value="7d" className="text-xs px-3">7 days</TabsTrigger>
-              <TabsTrigger value="30d" className="text-xs px-3">30 days</TabsTrigger>
-              <TabsTrigger value="all" className="text-xs px-3">All time</TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="shrink-0 h-9 w-9"
-          >
-            <RefreshCw
-              className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+      {/* Header Banner with Weather Effects */}
+      <div className="relative rounded-xl overflow-hidden bg-gradient-to-r from-secondary/50 via-secondary/30 to-secondary/50 border border-border/50">
+        {/* Weather Effects Background */}
+        {!weather.loading && (
+          <div className="absolute inset-0 pointer-events-none">
+            <WeatherEffects
+              type={weather.condition}
+              isDay={weather.isDay}
+              windSpeed={weather.windSpeed}
+              cloudCover={weather.cloudCover}
             />
-          </Button>
+          </div>
+        )}
+
+        {/* Header Content */}
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 md:p-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 backdrop-blur-sm">
+              <LayoutDashboard className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+              <p className="text-sm text-muted-foreground">
+                Overview of your testing activity
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Time Filter Tabs */}
+            <Tabs
+              value={timeFilter}
+              onValueChange={(v) => setTimeFilter(v as typeof timeFilter)}
+              className="w-auto"
+            >
+              <TabsList className="h-9 backdrop-blur-sm">
+                <TabsTrigger value="7d" className="text-xs px-3">7 days</TabsTrigger>
+                <TabsTrigger value="30d" className="text-xs px-3">30 days</TabsTrigger>
+                <TabsTrigger value="all" className="text-xs px-3">All time</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="shrink-0 h-9 w-9 backdrop-blur-sm"
+            >
+              <RefreshCw
+                className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`}
+              />
+            </Button>
+          </div>
         </div>
       </div>
 

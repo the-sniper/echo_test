@@ -79,7 +79,7 @@ export function ActiveSessionsBanner({ sessions }: ActiveSessionsBannerProps) {
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75" />
                                         <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white" />
                                     </span>
-                                    Live
+                                    <span className="text-white">Live</span>
                                 </Badge>
                             </div>
 

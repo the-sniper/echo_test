@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 
-export type WeatherCondition = 'clear' | 'cloudy' | 'rain' | 'snow';
+export type WeatherCondition =
+    | 'clear'
+    | 'cloudy'
+    | 'rain'
+    | 'heavy_rain'
+    | 'drizzle'
+    | 'thunderstorm'
+    | 'snow'
+    | 'fog'
+    | 'mist';
 
 interface WeatherData {
     condition: WeatherCondition;
@@ -12,19 +21,49 @@ interface WeatherData {
     error: string | null;
 }
 
-// ... (existing code for WMO codes)
-
+/**
+ * WMO Weather interpretation codes (WW)
+ * https://open-meteo.com/en/docs
+ * 
+ * 0: Clear sky
+ * 1, 2, 3: Mainly clear, partly cloudy, overcast
+ * 45, 48: Fog, depositing rime fog
+ * 51, 53, 55: Drizzle: Light, moderate, dense
+ * 56, 57: Freezing Drizzle: Light, dense
+ * 61, 63, 65: Rain: Slight, moderate, heavy
+ * 66, 67: Freezing Rain: Light, heavy
+ * 71, 73, 75: Snow fall: Slight, moderate, heavy
+ * 77: Snow grains
+ * 80, 81, 82: Rain showers: Slight, moderate, violent
+ * 85, 86: Snow showers: Slight, heavy
+ * 95: Thunderstorm: Slight or moderate
+ * 96, 99: Thunderstorm with slight/heavy hail
+ */
 function getWeatherCondition(code: number): WeatherCondition {
+    // Clear
     if (code === 0 || code === 1) return 'clear';
-    if (code === 2 || code === 3 || code === 45 || code === 48 || code === 51 || code === 53 || code === 55) return 'cloudy';
 
-    if (
-        [56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(code)
-    ) return 'rain';
+    // Cloudy
+    if (code === 2 || code === 3) return 'cloudy';
 
-    if (
-        [71, 73, 75, 77, 85, 86].includes(code)
-    ) return 'snow';
+    // Fog / Mist
+    if (code === 45) return 'fog';
+    if (code === 48) return 'mist'; // Rime fog is more like mist
+
+    // Drizzle
+    if ([51, 53, 55, 56, 57].includes(code)) return 'drizzle';
+
+    // Rain (light to moderate)
+    if ([61, 63, 80, 81].includes(code)) return 'rain';
+
+    // Heavy rain
+    if ([65, 66, 67, 82].includes(code)) return 'heavy_rain';
+
+    // Thunderstorm
+    if ([95, 96, 99].includes(code)) return 'thunderstorm';
+
+    // Snow
+    if ([71, 73, 75, 77, 85, 86].includes(code)) return 'snow';
 
     return 'clear'; // Default fallback
 }
