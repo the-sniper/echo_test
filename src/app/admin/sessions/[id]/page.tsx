@@ -866,14 +866,33 @@ export default function SessionDetailPage({
   }
 
   // Check if a team member is already added as a tester
+  // Compare by user_id first, then email, and only fall back to name if neither is available
   function isMemberAlreadyTester(member: TeamMember, testers?: Tester[]): boolean {
     const testerList = testers || session?.testers;
     if (!testerList) return false;
-    return testerList.some(
-      (t) =>
-        t.first_name.toLowerCase() === member.first_name.toLowerCase() &&
-        t.last_name.toLowerCase() === member.last_name.toLowerCase()
-    );
+
+    return testerList.some((t) => {
+      // 1. Compare by user_id if both have it (most reliable)
+      if (t.user_id && member.user_id) {
+        return t.user_id === member.user_id;
+      }
+
+      // 2. Compare by email if both have it (case-insensitive)
+      if (t.email && member.email) {
+        return t.email.toLowerCase() === member.email.toLowerCase();
+      }
+
+      // 3. Fall back to name comparison only if no other identifier is available
+      // This is the least reliable method and should only be used as a fallback
+      if (!t.user_id && !t.email && !member.user_id && !member.email) {
+        return (
+          t.first_name.toLowerCase() === member.first_name.toLowerCase() &&
+          t.last_name.toLowerCase() === member.last_name.toLowerCase()
+        );
+      }
+
+      return false;
+    });
   }
 
   // Check if an individual tester with given name already exists
@@ -1358,6 +1377,13 @@ export default function SessionDetailPage({
     setSelectedTeam(null);
     setSelectedMembers(new Set());
     setSelectedUsersForAdd([]);
+  }
+
+  // Open add tester dialog with fresh team data
+  async function openAddTesterDialog() {
+    // Refresh teams list to get latest member counts
+    await fetchTeams();
+    setAddTesterDialog(true);
   }
   function openDeleteTesterDialog(tester: Tester) {
     setTesterToDelete(tester);
@@ -2273,7 +2299,7 @@ export default function SessionDetailPage({
                   )}
                   {session.status !== "completed" && (
                     <>
-                      <Button onClick={() => setAddTesterDialog(true)} size="sm" className="flex-1 sm:flex-none">
+                      <Button onClick={openAddTesterDialog} size="sm" className="flex-1 sm:flex-none">
                         <Plus className="w-4 h-4" />
                         <span className="hidden sm:inline">Add Tester</span>
                         <span className="sm:hidden">Add</span>
@@ -3152,7 +3178,7 @@ export default function SessionDetailPage({
           </TabsContent>
         )}
       </Tabs>
-      <Dialog open={addTesterDialog} onOpenChange={(open) => { if (!open) resetTesterDialog(); else setAddTesterDialog(true); }}>
+      <Dialog open={addTesterDialog} onOpenChange={(open) => { if (!open) resetTesterDialog(); else openAddTesterDialog(); }}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Add Testers</DialogTitle>
